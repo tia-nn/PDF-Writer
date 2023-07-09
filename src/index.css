@@ -30,3 +30,8 @@ body {
 #root {
     height: 100%;
 }
+
+@font-face {
+    font-family: 'Last Resort';
+    src: url(/public/LastResort-Regular.ttf);
+}

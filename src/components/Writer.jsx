@@ -19,8 +19,12 @@ function Writer({ value, onChange }) {
         <Editor className="writer-editor"
             onChange={handleChange}
             value={value}
+            options={{
+                fontFamily: '"Source Code Pro", "Last Resort"'
+            }}
         ></Editor>
     </main>);
 }
+
 
 export default Writer;
