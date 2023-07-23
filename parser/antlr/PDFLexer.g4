@@ -29,13 +29,35 @@ K_OBJ: 'obj';
 K_ENDOBJ: 'endobj';
 K_STREAM: 'stream' -> pushMode(STREAM_MODE);
 K_ENDSTREAM: 'endstream';
-K_XREF: 'xref' -> pushMode(XREF_MODE);
+K_XREF: 'xref'; // -> pushMode(XREF_MODE);
 K_TRAILER: 'trailer';
 K_STARTXREF: 'startxref';
 K_TRUE: 'true';
 K_FALSE: 'false';
 K_R: 'R';
 K_NULL: 'null';
+
+// mode XREF_MODE;
+
+// XREF_n: [0-9]{10}; XREF_g: [0-9]{5};
+XREF_TYPE_N: 'n';
+XREF_TYPE_F: 'f';
+
+// XREF_INT: INTEGER; XREF_SP: ' ';
+
+// XREF_EOL_CRLF: '\r\n';
+
+// XREF_EOL_SPCR_SPLF: ' \r' | ' \n';
+
+// XREF_EOL_CL_LF: '\n' | '\r';
+
+// XREF_WHITESPACE: [\u0000\t\f];
+
+// XREF_TRAILER:
+
+// 	K_TRAILER -> type(K_TRAILER), mode(DEFAULT_MODE);
+
+// XREF_INVALID: .;
 
 // others
 REGULAR_CHAR: ~[\u0000\t\f \r\n()<>[\]{}/%];
@@ -101,24 +123,3 @@ NAME_INVALID: .;
 mode STREAM_MODE;
 STREAM_CONTENT_ENDSTREAM: K_ENDSTREAM -> popMode;
 STREAM_CONTENT: . -> more;
-
-mode XREF_MODE;
-
-XREF_n: [0-9]{10};
-XREF_g: [0-9]{5};
-XREF_TYPE_N: 'n';
-XREF_TYPE_F: 'f';
-
-XREF_INT: INTEGER;
-XREF_SP: ' ';
-
-XREF_EOL_CRLF: '\r\n';
-XREF_EOL_SPCR_SPLF: ' \r' | ' \n';
-XREF_EOL_CL_LF: '\n' | '\r';
-
-// TODO: トークンを消費しないでモード切り替えだけしたい。ひとまず trailer と white-space のみそれぞれの動作を書く。
-XREF_WHITESPACE: [\u0000\t\f \r\n] -> skip, popMode;
-XREF_TRAILER:
-	K_TRAILER -> type(K_TRAILER), mode(DEFAULT_MODE);
-
-XREF_INVALID

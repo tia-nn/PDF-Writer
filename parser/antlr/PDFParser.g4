@@ -3,12 +3,17 @@ options {
 	tokenVocab = PDFLexer;
 }
 
-start: statement+;
+// TODO: incremental update に対応
+start: header? body xref_section trailer;
 
 header: H_PDF;
 
+body: statement+;
+
 // statement: comment | object | unexpected;
-statement: object | unexpected | header;
+
+// statement: object | unexpected;
+statement: object;
 
 // comment: COMMENT_PREFIX COMMENT_CONTENT?;
 
@@ -68,8 +73,27 @@ stream_main: K_STREAM STREAM_CONTENT_ENDSTREAM;
 indirect_object_define: integer integer K_OBJ object K_ENDOBJ;
 
 // indirect reference
-
 indirct_reference: integer integer K_R;
+
+// xref
+
+// 固定フォーマットの検証は AST 作成のタイミングで対応する
+
+xref_section: xref_header xref_subsection*;
+
+xref_subsection: xref_subsection_header xref_entry*;
+xref_subsection_header: integer integer;
+xref_entry: integer integer xref_type;
+xref_header: K_XREF;
+xref_type: XREF_TYPE_N | XREF_TYPE_F;
+
+// trailer
+
+trailer: trailer_header dict startxref integer eof_marker;
+trailer_header: K_TRAILER;
+
+startxref: K_STARTXREF;
+eof_marker: H_EOF;
 
 // keyword: K_OBJ | K_ENDOBJ | K_STREAM | K_ENDSTREAM | K_XREF | K_TRAILER | K_STARTXREF | K_TRUE |
 // K_FALSE | K_R | K_NULL;
@@ -81,6 +105,6 @@ indirct_reference: integer integer K_R;
 
 // eol_marker: (EOL_MARKER | comment)+;
 
-any: .;
+// any: .;
 
-unexpected: any;
+// unexpected: any;

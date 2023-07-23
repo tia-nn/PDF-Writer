@@ -6,11 +6,11 @@ import Writer from './components/Writer'
 import Viewer from './components/Viewer'
 import { Col, Container, Row } from 'react-bootstrap'
 
-import PDFParser from '../antlr/dist/PDFParser'
-import PDFLexer from '../antlr/dist/PDFLexer'
+import PDFParser from '../parser/antlr/dist/PDFParser'
+import PDFLexer from '../parser/antlr/dist/PDFLexer'
 import antlr4 from 'antlr4'
 import 'antlr4/'
-import PDFLexerPrinter from '../antlr/PDFLexerPrinter'
+import PDFLexerPrinter from '../parser/antlr/PDFLexerPrinter'
 
 /**
  * @typedef {import('antlr4/tree/TerminalNode').default} TerminalNode
