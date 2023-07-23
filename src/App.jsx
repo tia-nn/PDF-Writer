@@ -6,12 +6,43 @@ import Writer from './components/Writer'
 import Viewer from './components/Viewer'
 import { Col, Container, Row } from 'react-bootstrap'
 
+import PDFParser from '../antlr/dist/PDFParser'
+import PDFLexer from '../antlr/dist/PDFLexer'
+import antlr4 from 'antlr4'
+import 'antlr4/'
+import PDFLexerPrinter from '../antlr/PDFLexerPrinter'
+
+/**
+ * @typedef {import('antlr4/tree/TerminalNode').default} TerminalNode
+ * @typedef {import('antlr4/context/ParserRuleContext').default} ParserRuleContext
+ */
+
 function App() {
     const [value, setValue] = useState(defaultValue);
 
     const handleChange = useCallback((newValue) => {
         setValue(newValue);
     }, []);
+
+    const chars = new antlr4.InputStream(value);
+    const lexer = new PDFLexer(chars);
+    const tokens = new antlr4.CommonTokenStream(lexer);
+    const parser = new PDFParser(tokens);
+    parser.buildParseTrees = true;
+    const tree = parser.start();
+
+    const listener = new PDFLexerPrinter();
+    antlr4.tree.ParseTreeWalker.DEFAULT.walk(listener, tree);
+
+    // console.log(tree.toStringTree());
+
+    // console.log(tree.getChildCount())
+
+    // for (let i in [...Array(tree.getChildCount())]) {
+    //     /**@type {TerminalNode | ParserRuleContext} */
+    //     let c = tree.getChild(i)
+    //     console.log(c)
+    // }
 
     return (
         <>
@@ -25,8 +56,15 @@ function App() {
                 </Container>
             </div>
         </>
-    )
+    );
 }
+
+// /**
+//  * @param {TerminalNode | ParserRuleContext} t
+//  */
+// function printNode(t) {
+
+// }
 
 
 const defaultValue = `%PDF-1.0
@@ -81,11 +119,11 @@ endobj
 endobj xref
 0 6
 0000000000 65535 f
-0000000015 00000 n
-0000000074 00000 n
-0000000182 00000 n
-0000000281 00000 n
-0000000402 00000 n
+0000000023 00000 n
+0000000082 00000 n
+0000000190 00000 n
+0000000289 00000 n
+0000000410 00000 n
 trailer
 
 <<
@@ -93,7 +131,7 @@ trailer
 /Size 6
 >>
 startxref
-452
+460
 %%EOF
 `
 
