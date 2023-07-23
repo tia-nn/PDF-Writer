@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import Header from './components/Header'
@@ -6,43 +6,12 @@ import Writer from './components/Writer'
 import Viewer from './components/Viewer'
 import { Col, Container, Row } from 'react-bootstrap'
 
-import PDFParser from '../parser/antlr/dist/PDFParser'
-import PDFLexer from '../parser/antlr/dist/PDFLexer'
-import antlr4 from 'antlr4'
-import 'antlr4/'
-import PDFLexerPrinter from '../parser/antlr/PDFLexerPrinter'
-
-/**
- * @typedef {import('antlr4/tree/TerminalNode').default} TerminalNode
- * @typedef {import('antlr4/context/ParserRuleContext').default} ParserRuleContext
- */
-
 function App() {
-    const [value, setValue] = useState(defaultValue);
+    const [value, setValue] = useState(toAsciiString(defaultValue));
 
     const handleChange = useCallback((newValue) => {
-        setValue(newValue);
+        setValue(toAsciiString(newValue));
     }, []);
-
-    const chars = new antlr4.InputStream(value);
-    const lexer = new PDFLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new PDFParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.start();
-
-    const listener = new PDFLexerPrinter();
-    antlr4.tree.ParseTreeWalker.DEFAULT.walk(listener, tree);
-
-    // console.log(tree.toStringTree());
-
-    // console.log(tree.getChildCount())
-
-    // for (let i in [...Array(tree.getChildCount())]) {
-    //     /**@type {TerminalNode | ParserRuleContext} */
-    //     let c = tree.getChild(i)
-    //     console.log(c)
-    // }
 
     return (
         <>
@@ -59,13 +28,24 @@ function App() {
     );
 }
 
-// /**
-//  * @param {TerminalNode | ParserRuleContext} t
-//  */
-// function printNode(t) {
+/** @param {string} s */
+function toAsciiString(s) {
+    return new TextDecoder('ascii').decode(stringToAsciiUint8Array(s));
+}
 
-// }
-
+function stringToAsciiUint8Array(inputString) {
+    const uint8array = new Uint8Array(inputString.length * 2);
+    let ii = 0;
+    for (let i = 0; i < inputString.length; i++) {
+        const charCode = inputString.charCodeAt(i);
+        if (charCode > 256) {
+            console.log(charCode.toString(16));
+            uint8array[ii++] = charCode >>> 8;
+        }
+        uint8array[ii++] = charCode & 0xff;
+    }
+    return uint8array.subarray(0, ii);
+}
 
 const defaultValue = `%PDF-1.0
 %����
