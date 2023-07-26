@@ -48,7 +48,7 @@ literal_string_inner:
 escape_sequence: ESCAPE_CHAR | ESCAPE_OCTAL | ESCAPE_NEWLINE;
 
 hex_string:
-	HSTR_QUOTE_OPEN hex_string_content? HSTR_QUOTE_CLOSE;
+	HSTR_QUOTE_OPEN hex_string_content* HSTR_QUOTE_CLOSE;
 hex_string_content: HSTR_CONTENT | HSTR_INVALID;
 
 // null

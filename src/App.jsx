@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
-import './App.css'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import Header from './components/Header'
-import Writer from './components/Writer'
-import Viewer from './components/Viewer'
-import { Col, Container, Row } from 'react-bootstrap'
+import { useCallback, useEffect, useState } from 'react';
+import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import Header from './components/Header';
+import Writer from './components/Writer';
+import Viewer from './components/Viewer';
+import { Col, Container, Row } from 'react-bootstrap';
 
 function App() {
     const [value, setValue] = useState(toAsciiString(defaultValue));
@@ -113,6 +113,6 @@ trailer
 startxref
 460
 %%EOF
-`
+`;
 
-export default App
+export default App;
