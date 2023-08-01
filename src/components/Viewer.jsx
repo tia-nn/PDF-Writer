@@ -1,4 +1,6 @@
-import './Viewer.css'
+import './Viewer.css';
+import IFrameViewer from "./viewer/IFrame";
+import PDFjsViewer from "./viewer/PDFjs";
 
 /**
  *
@@ -8,11 +10,11 @@ import './Viewer.css'
  */
 function Viewer({ value }) {
 
-    const pdf = new Blob([value], { type: "application/pdf" })
-    const url = URL.createObjectURL(pdf)
+    const pdf = new Blob([value], { type: "application/pdf" });
+    const url = URL.createObjectURL(pdf);
 
     return (<section className="viewer-main">
-        <iframe className="viewer-iframe" src={url}></iframe>
+        <IFrameViewer url={url}></IFrameViewer>
     </section>);
 }
 
