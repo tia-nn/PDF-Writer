@@ -7,7 +7,7 @@ import PDFParser from '../../parser/antlr/dist/PDFParser';
 import PDFLexer from '../../parser/antlr/dist/PDFLexer';
 import antlr4 from 'antlr4';
 import { DetectIndirectDefines } from '../../parser/ast/detect-indirect-define';
-import { ASTVisitor } from "../../parser/ast/ast/ast-visitor";
+import { ASTVisitor } from "../../parser/ast/ast-visitor";
 
 /**
  * @typedef {import('antlr4/tree/TerminalNode').default} TerminalNode
@@ -107,16 +107,16 @@ function autoXref(value) {
     const tree = parser.start();
 
     const indirectDefineDetector = new DetectIndirectDefines();
-    antlr4.tree.ParseTreeWalker.DEFAULT.walk(indirectDefineDetector, tree);
-    const defines = indirectDefineDetector.defines;
+    const defines = indirectDefineDetector.visit(tree);
+    console.log(defines);
 
     /** @type {Array<{objectNumber: number, generationNumber: number, start: number}>} */
     const defPos = [];
     for (let i = 0; i < defines.length; i++) {
         const d = defines[i];
-        defPos[d.value.objectNumber] = {
-            objectNumber: d.value.objectNumber,
-            generationNumber: d.value.generationNumber,
+        defPos[d.value.objNum] = {
+            objectNumber: d.value.objNum,
+            generationNumber: d.value.genNum,
             start: d.position.start,
         };
     }

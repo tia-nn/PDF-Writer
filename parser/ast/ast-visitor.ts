@@ -1,14 +1,86 @@
-import { ErrorNode, ParserRuleContext, TerminalNode } from "antlr4";
-import { ArrayContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, RealContext, StringContext } from "../../antlr/dist/PDFParser";
-import PDFParserVisitor from "../../antlr/dist/PDFParserVisitor";
-import { BaseASTNode, UnionNode, UnionTerminal } from "./base";
-import { Position } from "./position";
-import { IntegerNode, NumberKindInteger, NumberKindReal, NumberNode, RealNode } from "./number";
-import { NameCKindContent, NameCKindEscape, NameCKindInvalid, NameContentNode, NameNode } from "./name";
-import { HStrContentNode, HStringNode, LStrContentNode, LStrEscapeNode, LStringNode, StringKindHex, StringKindLiteral, StringNode } from "./string";
-import { NullObjectNode } from "./null";
+import { ParserRuleContext, TerminalNode } from "antlr4";
+import { ArrayContext, DictContext, Dict_pairContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, Indirect_object_defineContext, Indirect_referenceContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, ObjectContext, RealContext, StreamContext, Stream_mainContext, StringContext } from "../antlr/dist/PDFParser";
+import PDFParserVisitor from "../antlr/dist/PDFParserVisitor";
+import { BaseASTNode } from "./ast/base";
+import { Position } from "./ast/position";
+import { IntegerNode, NumberKindInteger, NumberKindReal, NumberNode, RealNode } from "./ast/number";
+import { NameContentNode, NameNode } from "./ast/name";
+import { HStrContentNode, HStringNode, LStrContentNode, LStrEscapeNode, LStringNode, StringKindHex, StringKindLiteral, StringNode } from "./ast/string";
+import { NullObjectNode } from "./ast/null";
+import { ObjKindArray, ObjKindDict, ObjKindIndirectReference, ObjKindName, ObjKindNull, ObjKindNumber, ObjKindStream, ObjKindString, ObjectNode } from "./ast/object";
+import { ArrayNode } from "./ast/array";
+import { IndirectDefineNode, IndirectReferenceNode } from "./ast/indirect";
+import { DictNode, DictPairNode } from "./ast/dict";
+import { StreamMainNode, StreamNode } from "./ast/stream";
 
 export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
+
+    visitIndirect_object_define: ((ctx: Indirect_object_defineContext) => IndirectDefineNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { objNum: -1, genNum: -1, obj: null });
+
+        const [objNum, genNum] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
+        const obj = ctx.object().accept(this) as ObjectNode;
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                objNum: objNum,
+                genNum: genNum,
+                k_obj: ctx.K_OBJ(),
+                object: obj,
+                k_endobj: ctx.K_ENDOBJ(),
+            },
+            value: {
+                objNum: objNum.value,
+                genNum: genNum.value,
+                obj: obj.value,
+            },
+        };
+    };
+
+    visitObject: ((ctx: ObjectContext) => ObjectNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, null);
+
+        const indirect = ctx.indirect_reference();
+        const stream = ctx.stream();
+        const dict = ctx.dict();
+        const array = ctx.array();
+        const name = ctx.name();
+        const number = ctx.number_();
+        const string = ctx.string_();
+        const null_ = ctx.null_obj();
+        const src: ObjectNode['src'] = indirect ? {
+            kind: "reference",
+            node: indirect.accept(this),
+        } as ObjKindIndirectReference : stream ? {
+            kind: "stream",
+            node: stream.accept(this),
+        } as ObjKindStream : dict ? {
+            kind: "dict",
+            node: dict.accept(this),
+        } as ObjKindDict : array ? {
+            kind: "array",
+            node: array.accept(this),
+        } as ObjKindArray : name ? {
+            kind: "name",
+            node: name.accept(this),
+        } as ObjKindName : number ? {
+            kind: "number",
+            node: number.accept(this),
+        } as ObjKindNumber : string ? {
+            kind: "string",
+            node: string.accept(this),
+        } as ObjKindString : {
+            kind: "null",
+            node: null_.accept(this),
+        } as ObjKindNull;
+        return {
+            ctx: ctx,
+            src: src,
+            value: src.node.value,
+            position: calcPosition(ctx),
+        };
+    };
 
     // Number
 
@@ -317,6 +389,137 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
             position: calcPosition(ctx),
             src: ctx.K_NULL(),
             value: null,
+        };
+    };
+
+    // array
+
+    visitArray: ((ctx: ArrayContext) => ArrayNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, []);
+
+        const contents = ctx.object_list().map(n => n.accept(this) as ObjectNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                arrayOpen: ctx.ARRAY_OPEN(),
+                contents: contents,
+                arrayClose: ctx.ARRAY_CLOSE(),
+            },
+            value: contents.map(n => n.value),
+        };
+    };
+
+    // dict
+
+    visitDict: ((ctx: DictContext) => DictNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, {});
+
+        const pairs = ctx.dict_pair_list().map(n => n.accept(this) as DictPairNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                dictOpen: ctx.DICT_OPEN(),
+                contents: pairs,
+                dictClose: ctx.DICT_CLOSE(),
+            },
+            value: pairs.reduce((p, n) => { p[n.value.name] = n.value.object; return p; }, {} as DictNode['value']),
+        };
+    };
+
+    visitDict_pair: ((ctx: Dict_pairContext) => DictPairNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { name: "", object: null });
+
+        const name = ctx.name().accept(this) as NameNode;
+        const obj = ctx.object().accept(this) as ObjectNode;
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                name: name,
+                object: obj,
+            },
+            value: {
+                name: name.value,
+                object: obj.value,
+            }
+        };
+    };
+
+    // stream
+
+    visitStream: ((ctx: StreamContext) => StreamNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { dict: {}, content: "" });
+
+        const dict = ctx.dict().accept(this) as DictNode;
+        const main = ctx.stream_main().accept(this) as StreamMainNode;
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                dict: dict,
+                main: main,
+            },
+            value: {
+                dict: dict.value,
+                content: main.value,
+            }
+        };
+    };
+
+    visitStream_main: ((ctx: Stream_mainContext) => StreamMainNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, "");
+
+        const c = ctx.STREAM_CONTENT_ENDSTREAM();
+        let s = c.getText();
+
+        // strip eol following stream keyword
+        if (s.slice(0, 2) === "\r\n") {
+            s = s.slice(2);
+        } else if (s[0] === "\n") {
+            s = s.slice(1);
+        }
+
+        // strip endstream keyword
+        s = s.slice(0, -'endstream'.length);
+
+        // strip eol followed by endstream keyword
+        if (s.slice(s.length - 2) === "\r\n") {
+            s = s.slice(0, -2);
+        } else if (s[s.length - 1] === "\n" || s[s.length - 1] === '\r') {
+            s = s.slice(0, -1);
+        }
+
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                k_stream: ctx.K_STREAM(),
+                content_endstream: c,
+            },
+            value: s,
+        };
+    };
+
+    // R
+
+    visitIndirect_reference: ((ctx: Indirect_referenceContext) => IndirectReferenceNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { objNum: -1, genNum: -1 });
+
+        const [objNum, genNum] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                objNum: objNum,
+                genNum: genNum,
+                k_r: ctx.K_R(),
+            },
+            value: {
+                objNum: objNum.value,
+                genNum: genNum.value,
+            },
         };
     };
 

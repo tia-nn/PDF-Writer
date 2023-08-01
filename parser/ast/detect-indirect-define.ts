@@ -1,11 +1,27 @@
-import { Indirect_object_defineContext } from "../antlr/dist/PDFParser";
+import { ParseTree, ParserRuleContext } from "antlr4";
+import { BodyContext, Indirect_object_defineContext, Indirect_referenceContext } from "../antlr/dist/PDFParser";
 import PDFParserListener from "../antlr/dist/PDFParserListener";
-import { IndirectObjectDefineNode } from "./ast";
+import PDFParserVisitor from "../antlr/dist/PDFParserVisitor";
+import { ASTVisitor } from "./ast-visitor";
+import { BaseASTNode } from "./ast/base";
+import { IndirectDefineNode } from "./ast/indirect";
 
-export class DetectIndirectDefines extends PDFParserListener {
-    defines: IndirectObjectDefineNode[] = [];
+export class DetectIndirectDefines extends PDFParserVisitor<IndirectDefineNode[]> {
 
-    enterIndirect_object_define?: ((ctx: Indirect_object_defineContext) => void) | undefined = ctx => {
-        this.defines.push(new IndirectObjectDefineNode(ctx));
+    visit(ctx: ParseTree): IndirectDefineNode[] {
+        if (Array.isArray(ctx)) {
+            return ctx.map(function (child) {
+                return child.accept(this);
+            }, this).flat(Infinity).filter(n => n != null);
+        } else {
+            return (ctx as any).accept(this);
+        }
+    }
+
+    visitIndirect_object_define: ((ctx: Indirect_object_defineContext) => IndirectDefineNode[]) = ctx => {
+        const astVisitor = new ASTVisitor();
+
+        return [astVisitor.visitIndirect_object_define(ctx)];
     };
+
 }

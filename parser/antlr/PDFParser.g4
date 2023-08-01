@@ -8,18 +8,12 @@ start: header? body xref_section trailer;
 
 header: H_PDF;
 
-body: statement+;
-
-// statement: comment | object | unexpected;
-
-// statement: object | unexpected;
-statement: object;
+body: indirect_object_define*;
 
 // comment: COMMENT_PREFIX COMMENT_CONTENT?;
 
 object:
-	indirct_reference
-	| indirect_object_define
+	indirect_reference
 	| stream
 	| dict
 	| array
@@ -27,6 +21,8 @@ object:
 	| number
 	| string
 	| null_obj;
+
+// number
 
 number: integer | real;
 integer: INTEGER;
@@ -73,7 +69,7 @@ stream_main: K_STREAM STREAM_CONTENT_ENDSTREAM;
 indirect_object_define: integer integer K_OBJ object K_ENDOBJ;
 
 // indirect reference
-indirct_reference: integer integer K_R;
+indirect_reference: integer integer K_R;
 
 // xref
 
