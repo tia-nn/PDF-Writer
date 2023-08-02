@@ -1,5 +1,5 @@
 import { ParserRuleContext, TerminalNode } from "antlr4";
-import { ArrayContext, DictContext, Dict_pairContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, Indirect_object_defineContext, Indirect_referenceContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, ObjectContext, RealContext, StreamContext, Stream_mainContext, StringContext, TrailerContext, Xref_entryContext, Xref_sectionContext, Xref_subsectionContext, Xref_subsection_headerContext, Xref_typeContext } from "../antlr/dist/PDFParser";
+import { ArrayContext, BodyContext, DictContext, Dict_pairContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, Indirect_object_defineContext, Indirect_referenceContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, ObjectContext, RealContext, StartContext, StreamContext, Stream_mainContext, StringContext, TrailerContext, Xref_entryContext, Xref_sectionContext, Xref_subsectionContext, Xref_subsection_headerContext, Xref_typeContext } from "../antlr/dist/PDFParser";
 import PDFParserVisitor from "../antlr/dist/PDFParserVisitor";
 import { BaseASTNode } from "./ast/base";
 import { Position } from "./ast/position";
@@ -14,8 +14,43 @@ import { DictNode, DictPairNode } from "./ast/dict";
 import { StreamMainNode, StreamNode } from "./ast/stream";
 import { XRefEntryNode, XRefSectionNode, XRefSubsectionHeaderNode, XRefSubsectionNode, XRefTypeNode } from "./ast/xref";
 import { TrailerNode } from "./ast/trailer";
+import { BodyNode } from "./ast/doby";
+import { StartNode } from "./ast/start";
 
 export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
+
+    visitStart: ((ctx: StartContext) => StartNode) = ctx => {
+        const body = ctx.body().accept(this) as BodyNode;
+        const xref = ctx.xref_section().accept(this) as XRefSectionNode;
+        const trailer = ctx.trailer().accept(this) as TrailerNode;
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                header: ctx.H_PDF(),
+                body: body,
+                xref: xref,
+                trailer: trailer,
+            },
+            value: {
+                body: body.value,
+                xref: xref.value,
+                trailer: trailer.value,
+            }
+        };
+    };
+
+    visitBody: ((ctx: BodyContext) => BodyNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, []);
+
+        const d = ctx.indirect_object_define_list().map(n => n.accept(this) as IndirectDefineNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: d,
+            value: d.map(n => n.value),
+        };
+    };
 
     visitIndirect_object_define: ((ctx: Indirect_object_defineContext) => IndirectDefineNode) = ctx => {
         if (ctx.exception) return this.errorNode(ctx, { objNum: -1, genNum: -1, obj: null });
