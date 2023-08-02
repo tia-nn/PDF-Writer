@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
-import MonarchLanguagePDF from "../monaco-pdf/monarch-language-pdf";
+import MonarchLanguagePDF from "./writer/language/monarch-language-pdf";
 
-import PDFParser, { StartContext } from '../../parser/antlr/dist/PDFParser';
-import PDFLexer from '../../parser/antlr/dist/PDFLexer';
-import antlr4 from 'antlr4';
-import { DetectIndirectDefines } from '../../parser/ast/detect-indirect-define';
-import { ASTVisitor } from "../../parser/ast/ast-visitor";
+import * as autoFill from './writer/language/AutoFill';
+import * as parser from './writer/language/Parser';
+import * as PDFLanguage from './writer/language/PDFLanguage';
 
 /**
  * @typedef {import('antlr4/tree/TerminalNode').default} TerminalNode
@@ -27,10 +25,11 @@ import { ASTVisitor } from "../../parser/ast/ast-visitor";
 /**
  * @param {Object} props
  * @param {string} props.value
+ * @param {boolean} props.autoXref
  * @param {function(string):void} props.onChange
  * @returns {JSX.Element}
  */
-function Writer({ value, onChange }) {
+function Writer({ value, autoXref, onChange }) {
     /** @type {import("react").RefObject<Position|null>} */
     const preventChangeEvent = useRef(false);
 
@@ -43,8 +42,7 @@ function Writer({ value, onChange }) {
     editor = _editor;
 
     const handleEditorMount = useCallback((mountedEditor, mountedMonaco) => {
-        mountedMonaco.languages.register({ id: 'pdf' });
-        mountedMonaco.languages.setMonarchTokensProvider('pdf', MonarchLanguagePDF);
+        PDFLanguage.registerLanguagePDF(mountedMonaco);
         setMonacoEditor([mountedMonaco, mountedEditor]);
     }, []);
 
@@ -57,7 +55,7 @@ function Writer({ value, onChange }) {
     const handleChange = useCallback(/** @type {EditorChangeHandler} */(newValue, ev) => {
         if (preventChangeEvent.current) return;
 
-        if (editor) {
+        if (autoXref && editor) {
 
             const model = editor.getModel();
             if (model == null) {
@@ -65,16 +63,18 @@ function Writer({ value, onChange }) {
                 return;
             }
 
-            const [tree, ast] = buildTreeAst(newValue);
+            try {
+                const [tree, ast] = parser.parse(newValue);
+                const xref = autoFill.buildXrefTable(tree, ast);
+                const xrefEditOp = buildEditOperation(editor, xref.start, xref.end, xref.text);
 
-            const xrefStart = ast.src.xref.position.start;
-            const trailerStart = ast.src.trailer.src.k_trailer.symbol.start;
-            const xref = buildXrefTable(tree);
-            const xrefEditOp = buildEditOperation(editor, xrefStart, trailerStart, xref);
-
-            preventChangeEvent.current = true;
-            editor.executeEdits(null, [xrefEditOp]);
-            preventChangeEvent.current = false;
+                preventChangeEvent.current = true;
+                editor.executeEdits(null, [xrefEditOp]);
+                preventChangeEvent.current = false;
+            } catch {  // PDF的にエラーのときはテキストだけ更新する。
+                if (onChange) onChange(newValue);
+                return;
+            }
 
             if (onChange) onChange(editor.getValue());
         } else {
@@ -82,6 +82,42 @@ function Writer({ value, onChange }) {
         }
 
     }, [monaco, editor]);
+
+    // (, <, [ 入力時に閉じquoteも補完する
+    useEffect(() => {
+        if (editor) {
+            const model = editor.getModel();
+            editor.onDidType(text => {
+                function closeQuote(text) {
+                    let selection = editor.getSelection();
+                    model.pushEditOperations([], [
+                        {
+                            range: {
+                                startLineNumber: selection.startLineNumber,
+                                startColumn: selection.startColumn,
+                                endLineNumber: selection.startLineNumber,
+                                endColumn: selection.startColumn
+                            },
+                            text: text,
+                        }
+                    ], (op) => {
+                        // 返り値が無視されるバグがあるので手動で editor.setSelection する
+                        // https://github.com/microsoft/monaco-editor/issues/3893
+                        editor.setSelection(selection);
+                        return [selection];
+                    });
+                }
+
+                if (text === "(") {
+                    closeQuote(")");
+                } else if (text === "<") {
+                    closeQuote(">");
+                } else if (text === "[") {
+                    closeQuote("]");
+                }
+            });
+        }
+    }, [editor]);
 
     return (<main className="writer-main">
         <Editor className="writer-editor"
@@ -121,72 +157,6 @@ function buildEditOperation(editor, start, end, diff) {
         range: range,
         text: diff,
     };
-}
-
-function buildXrefTable(tree) {
-    const defines = new DetectIndirectDefines().visit(tree);
-
-    /** @type {Array<{objectNumber: number, generationNumber: number, start: number}>} */
-    const defPos = [];
-    for (let i = 0; i < defines.length; i++) {
-        const d = defines[i];
-        defPos[d.value.objNum] = {
-            objectNumber: d.value.objNum,
-            generationNumber: d.value.genNum,
-            start: d.position.start,
-        };
-    }
-
-    const entries = [null];
-    for (let i = 1; i < defPos.length; i++) {
-        const d = defPos[i];
-        if (d) {
-            const entry = ('0000000000' + d.start.toString()).slice(-10)
-                + ' ' + ('00000' + d.generationNumber.toString()).slice(-5)
-                + ' ' + 'n' + ' \n';
-            entries.push(entry);
-        } else {
-            entries.push(null);
-        }
-    }
-    let i = 0;
-    while (true) {
-        if (entries[i] == null) {
-            const _next = entries.slice(i + 1).findIndex(el => el == null);
-            const next = _next != -1 ? _next + i + 1 : -1;
-            const g = i == 0 ? "65535" : "00000";
-            if (next != -1) {
-                entries[i] = `${("0000000000" + next.toString()).slice(-10)} ${g} f \n`;
-                i = next;
-                continue;
-            } else {
-                entries[i] = `0000000000 ${g} f \n`;
-                break;
-            }
-        }
-        i++;
-    }
-
-    const section = `xref\n0 ${entries.length}\n` + entries.join('');
-
-    return section;
-}
-
-/**
- * @returns {[StartContext, import("../../parser/ast/ast/start").StartNode]}
- */
-function buildTreeAst(v) {
-    const chars = new antlr4.InputStream(v);
-    const lexer = new PDFLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new PDFParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.start();
-
-    /** @type {import("../../parser/ast/ast/start").StartNode} */
-    const ast = new ASTVisitor().visit(tree);
-
-    return [tree, ast];
 }
 
 export default Writer;

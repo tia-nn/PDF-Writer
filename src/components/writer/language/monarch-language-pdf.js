@@ -37,7 +37,6 @@ const MonarchLanguagePDF = {
             }],
             [/@regular_char+/, {
                 cases: {
-                    'stream': { token: '', next: '@stream_object' },
                     '@keywords': 'keyword',
                 },
             }],

@@ -19,8 +19,14 @@ function App() {
                 <Header></Header>
                 <Container fluid className='main-container'>
                     <Row className='main-row'>
-                        <Col className='writer-col'><Writer onChange={handleChange} value={value}></Writer></Col>
-                        <Col className='viewer-col'><Viewer value={value}></Viewer></Col>
+                        <Col className='writer-col'><Writer
+                            value={value}
+                            autoXref={false}
+                            onChange={handleChange}
+                        ></Writer></Col>
+                        <Col className='viewer-col'><Viewer
+                            value={value}
+                        ></Viewer></Col>
                     </Row>
                 </Container>
             </div>
