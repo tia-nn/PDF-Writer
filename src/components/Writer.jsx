@@ -3,7 +3,7 @@ import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
 import MonarchLanguagePDF from "../monaco-pdf/monarch-language-pdf";
 
-import PDFParser from '../../parser/antlr/dist/PDFParser';
+import PDFParser, { StartContext } from '../../parser/antlr/dist/PDFParser';
 import PDFLexer from '../../parser/antlr/dist/PDFLexer';
 import antlr4 from 'antlr4';
 import { DetectIndirectDefines } from '../../parser/ast/detect-indirect-define';
@@ -21,12 +21,8 @@ import { ASTVisitor } from "../../parser/ast/ast-visitor";
  * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IModelContentChange} IModelContentChange
  * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IModelContentChangedEvent} IModelContentChangedEvent
  * @typedef {import("monaco-editor/esm/vs/editor/editor.api").Position} Position
+ * @typedef {import("monaco-editor/esm/vs/editor/editor.api").IRange} IRange
  */
-
-
-/** @type {Position} */
-let lastPosition;
-
 
 /**
  * @param {Object} props
@@ -35,6 +31,9 @@ let lastPosition;
  * @returns {JSX.Element}
  */
 function Writer({ value, onChange }) {
+    /** @type {import("react").RefObject<Position|null>} */
+    const preventChangeEvent = useRef(false);
+
     /** @type {Monaco | null} */
     let monaco;
     /** @type {IStandaloneCodeEditor | null} */
@@ -56,6 +55,7 @@ function Writer({ value, onChange }) {
      * @param {IModelContentChangedEvent} ev
      */
     const handleChange = useCallback(/** @type {EditorChangeHandler} */(newValue, ev) => {
+        if (preventChangeEvent.current) return;
 
         if (editor) {
 
@@ -65,41 +65,23 @@ function Writer({ value, onChange }) {
                 return;
             }
 
-            const chars = new antlr4.InputStream(newValue);
-            const lexer = new PDFLexer(chars);
-            const tokens = new antlr4.CommonTokenStream(lexer);
-            const parser = new PDFParser(tokens);
-            parser.buildParseTrees = true;
-            const tree = parser.start();
-
-            /** @type {import("../../parser/ast/ast/start").StartNode} */
-            const ast = new ASTVisitor().visit(tree);
-
-            lastPosition = editor.getPosition();
-            console.log('getposition', lastPosition);
+            const [tree, ast] = buildTreeAst(newValue);
 
             const xrefStart = ast.src.xref.position.start;
             const trailerStart = ast.src.trailer.src.k_trailer.symbol.start;
             const xref = buildXrefTable(tree);
+            const xrefEditOp = buildEditOperation(editor, xrefStart, trailerStart, xref);
 
-            console.log(`"${newValue.slice(xrefStart, trailerStart)}"`);
+            preventChangeEvent.current = true;
+            editor.executeEdits(null, [xrefEditOp]);
+            preventChangeEvent.current = false;
 
-            newValue = newValue.slice(0, xrefStart) + xref + newValue.slice(trailerStart);
-
-            if (onChange) onChange(newValue);
+            if (onChange) onChange(editor.getValue());
         } else {
             if (onChange) onChange(newValue);
         }
 
     }, [monaco, editor]);
-
-    console.log(editor, lastPosition);
-    useEffect(() => {
-        if (editor && lastPosition) {
-            console.log('setPosition', lastPosition);
-            editor.setPosition(lastPosition);
-        }
-    }, [value]);
 
     return (<main className="writer-main">
         <Editor className="writer-editor"
@@ -113,6 +95,32 @@ function Writer({ value, onChange }) {
             }}
         ></Editor>
     </main>);
+}
+
+/**
+ * @param {IStandaloneCodeEditor} editor
+ * @returns {IIdentifiedSingleEditOperation}
+ */
+function buildEditOperation(editor, start, end, diff) {
+    const model = editor.getModel();
+    if (!model) {
+        throw 'model is null.';
+    }
+
+    const startPos = model.getPositionAt(start);
+    const endPos = model.getPositionAt(end);
+    /** @type {IRange} */
+    const range = {
+        startLineNumber: startPos.lineNumber,
+        startColumn: startPos.column,
+        endLineNumber: endPos.lineNumber,
+        endColumn: endPos.column,
+    };
+
+    return {
+        range: range,
+        text: diff,
+    };
 }
 
 function buildXrefTable(tree) {
@@ -162,6 +170,23 @@ function buildXrefTable(tree) {
     const section = `xref\n0 ${entries.length}\n` + entries.join('');
 
     return section;
+}
+
+/**
+ * @returns {[StartContext, import("../../parser/ast/ast/start").StartNode]}
+ */
+function buildTreeAst(v) {
+    const chars = new antlr4.InputStream(v);
+    const lexer = new PDFLexer(chars);
+    const tokens = new antlr4.CommonTokenStream(lexer);
+    const parser = new PDFParser(tokens);
+    parser.buildParseTrees = true;
+    const tree = parser.start();
+
+    /** @type {import("../../parser/ast/ast/start").StartNode} */
+    const ast = new ASTVisitor().visit(tree);
+
+    return [tree, ast];
 }
 
 export default Writer;
