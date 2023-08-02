@@ -41,8 +41,8 @@ function Writer({ value, onChange }) {
     }, []);
 
     const handleChange = useCallback((newValue, ev) => {
-        console.log(autoXref(newValue));
-        if (onChange) onChange(newValue);
+        const filled = autoXref(newValue);
+        if (onChange) onChange(filled);
     }, []);
 
     const chars = new antlr4.InputStream(value);
@@ -57,32 +57,6 @@ function Writer({ value, onChange }) {
 
     const ast = tree.accept(new ASTVisitor());
     console.log(ast);
-
-    const flatten = [ast].flat(Infinity).filter(v => v);
-    console.log(flatten);
-
-
-    if (monaco && editor) {
-        /** @type {IMarkerData[]} */
-        const markers = [];
-        const model = editor.getModel();
-        for (let i = 0; i < flatten.length; i++) {
-            const f = flatten[i];
-            const start = model.getPositionAt(f.position.start);
-            const stop = model.getPositionAt(f.position.stop + 1);
-            markers.push({
-                startLineNumber: start.lineNumber,
-                startColumn: start.column,
-                endLineNumber: stop.lineNumber,
-                endColumn: stop.column,
-                severity: monaco.MarkerSeverity.Info,
-                message: `${parser.ruleNames[f.ctx.ruleIndex]}: ${f.value}`
-            });
-        }
-
-        monaco.editor.setModelMarkers(model, "test-owner", markers);
-    }
-
 
     return (<main className="writer-main">
         <Editor className="writer-editor"
@@ -106,9 +80,9 @@ function autoXref(value) {
     parser.buildParseTrees = true;
     const tree = parser.start();
 
-    const indirectDefineDetector = new DetectIndirectDefines();
-    const defines = indirectDefineDetector.visit(tree);
-    console.log(defines);
+    /** @type {import("../../parser/ast/ast/start").StartNode} */
+    const ast = new ASTVisitor().visit(tree);
+    const defines = new DetectIndirectDefines().visit(tree);
 
     /** @type {Array<{objectNumber: number, generationNumber: number, start: number}>} */
     const defPos = [];
@@ -121,7 +95,7 @@ function autoXref(value) {
         };
     }
 
-    const entries = [];
+    const entries = [null];
     for (let i = 1; i < defPos.length; i++) {
         const d = defPos[i];
         if (d) {
@@ -130,10 +104,33 @@ function autoXref(value) {
                 + ' ' + 'n' + ' \n';
             entries.push(entry);
         } else {
-            console.log('TODO');
+            entries.push(null);
         }
     }
-    return entries;
+    let i = 0;
+    while (true) {
+        if (entries[i] == null) {
+            const _next = entries.slice(i + 1).findIndex(el => el == null);
+            const next = _next != -1 ? _next + i + 1 : -1;
+            const g = i == 0 ? "65535" : "00000";
+            if (next != -1) {
+                entries[i] = `${("0000000000" + next.toString()).slice(-10)} ${g} f \n`;
+                i = next;
+                continue;
+            } else {
+                entries[i] = `0000000000 ${g} f \n`;
+                break;
+            }
+        }
+        i++;
+    }
+
+    const section = `xref\n0 ${entries.length}\n` + entries.join('');
+
+    const xrefStart = ast.src.xref.position.start;
+    const trailerStart = ast.src.trailer.src.k_trailer.symbol.start;
+
+    return value.slice(0, xrefStart) + section + value.slice(trailerStart);
 }
 
 export default Writer;
