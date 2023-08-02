@@ -1,16 +1,16 @@
-import { useCallback, useState } from 'react'
-import './App.css'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import Header from './components/Header'
-import Writer from './components/Writer'
-import Viewer from './components/Viewer'
-import { Col, Container, Row } from 'react-bootstrap'
+import { useCallback, useEffect, useState } from 'react';
+import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import Header from './components/Header';
+import Writer from './components/Writer';
+import Viewer from './components/Viewer';
+import { Col, Container, Row } from 'react-bootstrap';
 
 function App() {
-    const [value, setValue] = useState(defaultValue);
+    const [value, setValue] = useState(toAsciiString(defaultValue));
 
     const handleChange = useCallback((newValue) => {
-        setValue(newValue);
+        setValue(toAsciiString(newValue));
     }, []);
 
     return (
@@ -25,9 +25,26 @@ function App() {
                 </Container>
             </div>
         </>
-    )
+    );
 }
 
+/** @param {string} s */
+function toAsciiString(s) {
+    return new TextDecoder('ascii').decode(stringToAsciiUint8Array(s));
+}
+
+function stringToAsciiUint8Array(inputString) {
+    const uint8array = new Uint8Array(inputString.length * 2);
+    let ii = 0;
+    for (let i = 0; i < inputString.length; i++) {
+        const charCode = inputString.charCodeAt(i);
+        if (charCode > 256) {
+            uint8array[ii++] = charCode >>> 8;
+        }
+        uint8array[ii++] = charCode & 0xff;
+    }
+    return uint8array.subarray(0, ii);
+}
 
 const defaultValue = `%PDF-1.0
 %����
@@ -81,11 +98,11 @@ endobj
 endobj xref
 0 6
 0000000000 65535 f
-0000000015 00000 n
-0000000074 00000 n
-0000000182 00000 n
-0000000281 00000 n
-0000000402 00000 n
+0000000023 00000 n
+0000000082 00000 n
+0000000190 00000 n
+0000000289 00000 n
+0000000410 00000 n
 trailer
 
 <<
@@ -93,8 +110,8 @@ trailer
 /Size 6
 >>
 startxref
-452
+460
 %%EOF
-`
+`;
 
-export default App
+export default App;
