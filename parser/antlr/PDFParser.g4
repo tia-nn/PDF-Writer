@@ -4,7 +4,7 @@ options {
 }
 
 // TODO: incremental update に対応
-start: H_PDF? body xref_section trailer;
+start: H_PDF? body xref_section? trailer?;
 
 body: indirect_object_define*;
 
@@ -56,18 +56,19 @@ array: ARRAY_OPEN object* ARRAY_CLOSE;
 // dict
 
 dict: DICT_OPEN dict_pair* DICT_CLOSE;
-dict_pair: name object;
+dict_pair: name object?;
 
 // stream
 
-stream: dict stream_main;
+stream: dict? stream_main;
 stream_main: K_STREAM STREAM_CONTENT_ENDSTREAM;
 
 // indirect object
-indirect_object_define: integer integer K_OBJ object K_ENDOBJ;
+indirect_object_define:
+	integer? integer? K_OBJ object? K_ENDOBJ;
 
 // indirect reference
-indirect_reference: integer integer K_R;
+indirect_reference: integer? integer? K_R;
 
 // xref
 
@@ -82,4 +83,4 @@ xref_type: XREF_TYPE_N | XREF_TYPE_F;
 
 // trailer
 
-trailer: K_TRAILER dict K_STARTXREF integer H_EOF;
+trailer: K_TRAILER dict? K_STARTXREF? integer? H_EOF?;

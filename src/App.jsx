@@ -39,7 +39,6 @@ function stringToAsciiUint8Array(inputString) {
     for (let i = 0; i < inputString.length; i++) {
         const charCode = inputString.charCodeAt(i);
         if (charCode > 256) {
-            console.log(charCode.toString(16));
             uint8array[ii++] = charCode >>> 8;
         }
         uint8array[ii++] = charCode & 0xff;

@@ -8,28 +8,28 @@ import { IntegerNode } from "./number";
 export interface IndirectDefineNode extends BaseASTNode {
     ctx: Indirect_object_defineContext;
     src?: {
-        objNum: IntegerNode,
-        genNum: IntegerNode,
+        objNum?: IntegerNode,
+        genNum?: IntegerNode,
         k_obj: TerminalNode,
-        object: ObjectNode,
+        object?: ObjectNode,
         k_endobj: TerminalNode,
     };
     value: {
-        objNum: number,
-        genNum: number,
-        obj: ObjectNode['value'],
+        objNum?: number,
+        genNum?: number,
+        obj?: ObjectNode['value'],
     };
 }
 
 export interface IndirectReferenceNode extends BaseASTNode {
     ctx: Indirect_referenceContext;
     src?: {
-        objNum: IntegerNode,
-        genNum: IntegerNode,
+        objNum?: IntegerNode,
+        genNum?: IntegerNode,
         k_r: TerminalNode,
     };
     value: {
-        objNum: number,
-        genNum: number,
+        objNum?: number,
+        genNum?: number,
     };
 }

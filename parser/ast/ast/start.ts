@@ -11,12 +11,12 @@ export interface StartNode extends BaseASTNode {
     src: {
         header?: TerminalNode,
         body: BodyNode,
-        xref: XRefSectionNode,
-        trailer: TrailerNode,
+        xref?: XRefSectionNode,
+        trailer?: TrailerNode,
     };
     value: {
         body: BodyNode['value'],
-        xref: XRefSectionNode['value'],
-        trailer: TrailerNode['value'],
+        xref?: XRefSectionNode['value'],
+        trailer?: TrailerNode['value'],
     };
 }

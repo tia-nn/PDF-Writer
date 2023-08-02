@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
 import MonarchLanguagePDF from "../monaco-pdf/monarch-language-pdf";
@@ -17,7 +17,16 @@ import { ASTVisitor } from "../../parser/ast/ast-visitor";
  * @typedef {import("@monaco-editor/react").Monaco} Monaco
  * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IStandaloneCodeEditor} IStandaloneCodeEditor
  * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IMarkerData} IMarkerData
-*/
+ * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IIdentifiedSingleEditOperation} IIdentifiedSingleEditOperation
+ * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IModelContentChange} IModelContentChange
+ * @typedef {import("monaco-editor/esm/vs/editor/editor.api").editor.IModelContentChangedEvent} IModelContentChangedEvent
+ * @typedef {import("monaco-editor/esm/vs/editor/editor.api").Position} Position
+ */
+
+
+/** @type {Position} */
+let lastPosition;
+
 
 /**
  * @param {Object} props
@@ -40,23 +49,57 @@ function Writer({ value, onChange }) {
         setMonacoEditor([mountedMonaco, mountedEditor]);
     }, []);
 
-    const handleChange = useCallback((newValue, ev) => {
-        const filled = autoXref(newValue);
-        if (onChange) onChange(filled);
-    }, []);
 
-    const chars = new antlr4.InputStream(value);
-    const lexer = new PDFLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new PDFParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.start();
+    /**
+     * @callback EditorChangeHandler
+     * @param {string} newValue
+     * @param {IModelContentChangedEvent} ev
+     */
+    const handleChange = useCallback(/** @type {EditorChangeHandler} */(newValue, ev) => {
 
-    // const listener = new PDFLexerPrinter();
-    // antlr4.tree.ParseTreeWalker.DEFAULT.walk(listener, tree);
+        if (editor) {
 
-    const ast = tree.accept(new ASTVisitor());
-    console.log(ast);
+            const model = editor.getModel();
+            if (model == null) {
+                if (onChange) onChange(newValue);
+                return;
+            }
+
+            const chars = new antlr4.InputStream(newValue);
+            const lexer = new PDFLexer(chars);
+            const tokens = new antlr4.CommonTokenStream(lexer);
+            const parser = new PDFParser(tokens);
+            parser.buildParseTrees = true;
+            const tree = parser.start();
+
+            /** @type {import("../../parser/ast/ast/start").StartNode} */
+            const ast = new ASTVisitor().visit(tree);
+
+            lastPosition = editor.getPosition();
+            console.log('getposition', lastPosition);
+
+            const xrefStart = ast.src.xref.position.start;
+            const trailerStart = ast.src.trailer.src.k_trailer.symbol.start;
+            const xref = buildXrefTable(tree);
+
+            console.log(`"${newValue.slice(xrefStart, trailerStart)}"`);
+
+            newValue = newValue.slice(0, xrefStart) + xref + newValue.slice(trailerStart);
+
+            if (onChange) onChange(newValue);
+        } else {
+            if (onChange) onChange(newValue);
+        }
+
+    }, [monaco, editor]);
+
+    console.log(editor, lastPosition);
+    useEffect(() => {
+        if (editor && lastPosition) {
+            console.log('setPosition', lastPosition);
+            editor.setPosition(lastPosition);
+        }
+    }, [value]);
 
     return (<main className="writer-main">
         <Editor className="writer-editor"
@@ -72,16 +115,7 @@ function Writer({ value, onChange }) {
     </main>);
 }
 
-function autoXref(value) {
-    const chars = new antlr4.InputStream(value);
-    const lexer = new PDFLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new PDFParser(tokens);
-    parser.buildParseTrees = true;
-    const tree = parser.start();
-
-    /** @type {import("../../parser/ast/ast/start").StartNode} */
-    const ast = new ASTVisitor().visit(tree);
+function buildXrefTable(tree) {
     const defines = new DetectIndirectDefines().visit(tree);
 
     /** @type {Array<{objectNumber: number, generationNumber: number, start: number}>} */
@@ -127,10 +161,7 @@ function autoXref(value) {
 
     const section = `xref\n0 ${entries.length}\n` + entries.join('');
 
-    const xrefStart = ast.src.xref.position.start;
-    const trailerStart = ast.src.trailer.src.k_trailer.symbol.start;
-
-    return value.slice(0, xrefStart) + section + value.slice(trailerStart);
+    return section;
 }
 
 export default Writer;

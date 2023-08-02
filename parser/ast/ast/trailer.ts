@@ -8,13 +8,13 @@ export interface TrailerNode extends BaseASTNode {
     ctx: TrailerContext;
     src: {
         k_trailer: TerminalNode,
-        dict: DictNode,
-        k_startxref: TerminalNode,
-        xrefOffset: IntegerNode,
-        eofMarker: TerminalNode,
+        dict?: DictNode,
+        k_startxref?: TerminalNode,
+        xrefOffset?: IntegerNode,
+        eofMarker?: TerminalNode,
     };
     value: {
-        dict: DictNode['value'],
-        xrefOffset: number,
+        dict?: DictNode['value'],
+        xrefOffset?: number,
     };
 }

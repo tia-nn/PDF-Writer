@@ -21,8 +21,8 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
     visitStart: ((ctx: StartContext) => StartNode) = ctx => {
         const body = ctx.body().accept(this) as BodyNode;
-        const xref = ctx.xref_section().accept(this) as XRefSectionNode;
-        const trailer = ctx.trailer().accept(this) as TrailerNode;
+        const xref = ctx.xref_section()?.accept(this) as XRefSectionNode | undefined;
+        const trailer = ctx.trailer()?.accept(this) as TrailerNode | undefined;
         return {
             ctx: ctx,
             position: calcPosition(ctx),
@@ -34,8 +34,8 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
             },
             value: {
                 body: body.value,
-                xref: xref.value,
-                trailer: trailer.value,
+                xref: xref?.value,
+                trailer: trailer?.value,
             }
         };
     };
@@ -55,8 +55,10 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
     visitIndirect_object_define: ((ctx: Indirect_object_defineContext) => IndirectDefineNode) = ctx => {
         if (ctx.exception) return this.errorNode(ctx, { objNum: -1, genNum: -1, obj: null });
 
-        const [objNum, genNum] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
-        const obj = ctx.object().accept(this) as ObjectNode;
+
+        const objNum = ctx.integer(0)?.accept(this) as IntegerNode | undefined;
+        const genNum = ctx.integer(1)?.accept(this) as IntegerNode | undefined;
+        const obj = ctx.object()?.accept(this) as ObjectNode | undefined;
         return {
             ctx: ctx,
             position: calcPosition(ctx),
@@ -68,9 +70,9 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
                 k_endobj: ctx.K_ENDOBJ(),
             },
             value: {
-                objNum: objNum.value,
-                genNum: genNum.value,
-                obj: obj.value,
+                objNum: objNum?.value,
+                genNum: genNum?.value,
+                obj: obj?.value,
             },
         };
     };
@@ -461,7 +463,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
                 contents: pairs,
                 dictClose: ctx.DICT_CLOSE(),
             },
-            value: pairs.reduce((p, n) => { p[n.value.name] = n.value.object; return p; }, {} as DictNode['value']),
+            value: pairs.reduce((p, n) => { p[n.value.name] = n.value.object !== undefined ? n.value.object : null; return p; }, {} as DictNode['value']),
         };
     };
 
@@ -469,7 +471,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         if (ctx.exception) return this.errorNode(ctx, { name: "", object: null });
 
         const name = ctx.name().accept(this) as NameNode;
-        const obj = ctx.object().accept(this) as ObjectNode;
+        const obj = ctx.object()?.accept(this) as ObjectNode | undefined;
         return {
             ctx: ctx,
             position: calcPosition(ctx),
@@ -479,7 +481,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
             },
             value: {
                 name: name.value,
-                object: obj.value,
+                object: obj?.value,
             }
         };
     };
@@ -544,7 +546,8 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
     visitIndirect_reference: ((ctx: Indirect_referenceContext) => IndirectReferenceNode) = ctx => {
         if (ctx.exception) return this.errorNode(ctx, { objNum: -1, genNum: -1 });
 
-        const [objNum, genNum] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
+        const objNum = ctx.integer(0)?.accept(this) as IntegerNode | undefined;
+        const genNum = ctx.integer(1)?.accept(this) as IntegerNode | undefined;
         return {
             ctx: ctx,
             position: calcPosition(ctx),
@@ -554,8 +557,8 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
                 k_r: ctx.K_R(),
             },
             value: {
-                objNum: objNum.value,
-                genNum: genNum.value,
+                objNum: objNum?.value,
+                genNum: genNum?.value,
             },
         };
     };

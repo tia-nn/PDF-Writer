@@ -6,7 +6,7 @@ import { DictNode } from "./dict";
 export interface StreamNode extends BaseASTNode {
     ctx: StreamContext;
     src?: {
-        dict: DictNode,
+        dict?: DictNode,
         main: StreamMainNode,
     };
     value: {

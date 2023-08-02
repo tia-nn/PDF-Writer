@@ -21,10 +21,10 @@ export interface DictPairNode extends BaseASTNode {
     ctx: Dict_pairContext;
     src?: {
         name: NameNode,
-        object: ObjectNode,
+        object?: ObjectNode,
     };
     value: {
         name: string,
-        object: ObjectRecord['T'];
+        object?: ObjectRecord['T'];
     };
 }
