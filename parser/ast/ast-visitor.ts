@@ -1,5 +1,5 @@
 import { ParserRuleContext, TerminalNode } from "antlr4";
-import { ArrayContext, DictContext, Dict_pairContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, Indirect_object_defineContext, Indirect_referenceContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, ObjectContext, RealContext, StreamContext, Stream_mainContext, StringContext } from "../antlr/dist/PDFParser";
+import { ArrayContext, DictContext, Dict_pairContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, Indirect_object_defineContext, Indirect_referenceContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, ObjectContext, RealContext, StreamContext, Stream_mainContext, StringContext, TrailerContext, Xref_entryContext, Xref_sectionContext, Xref_subsectionContext, Xref_subsection_headerContext, Xref_typeContext } from "../antlr/dist/PDFParser";
 import PDFParserVisitor from "../antlr/dist/PDFParserVisitor";
 import { BaseASTNode } from "./ast/base";
 import { Position } from "./ast/position";
@@ -12,6 +12,8 @@ import { ArrayNode } from "./ast/array";
 import { IndirectDefineNode, IndirectReferenceNode } from "./ast/indirect";
 import { DictNode, DictPairNode } from "./ast/dict";
 import { StreamMainNode, StreamNode } from "./ast/stream";
+import { XRefEntryNode, XRefSectionNode, XRefSubsectionHeaderNode, XRefSubsectionNode, XRefTypeNode } from "./ast/xref";
+import { TrailerNode } from "./ast/trailer";
 
 export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
@@ -520,6 +522,117 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
                 objNum: objNum.value,
                 genNum: genNum.value,
             },
+        };
+    };
+
+    // xref
+
+    visitXref_section: ((ctx: Xref_sectionContext) => XRefSectionNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, []);
+
+        const entries = ctx.xref_subsection_list().map(n => n.accept(this) as XRefSubsectionNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                k_xref: ctx.K_XREF(),
+                subsections: entries,
+            },
+            value: entries.map(n => n.value),
+        };
+    };
+
+    visitXref_subsection: ((ctx: Xref_subsectionContext) => XRefSubsectionNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { header: { start: -1, len: -1 }, entries: [] });
+
+        const header = ctx.xref_subsection_header().accept(this) as XRefSubsectionHeaderNode;
+        const entries = ctx.xref_entry_list().map(n => n.accept(this) as XRefEntryNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                header: header,
+                entries: entries,
+            },
+            value: {
+                header: header.value,
+                entries: entries.map(n => n.value),
+            }
+        };
+    };
+
+    visitXref_subsection_header: ((ctx: Xref_subsection_headerContext) => XRefSubsectionHeaderNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { start: -1, len: -1 });
+
+        const [start, len] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                start: start,
+                len: len,
+            },
+            value: {
+                start: start.value,
+                len: len.value,
+            },
+        };
+    };
+
+    visitXref_entry: ((ctx: Xref_entryContext) => XRefEntryNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { n: -1, g: -1, type: "f" });
+
+        const [n, g] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
+        const ty = ctx.xref_type().accept(this) as XRefTypeNode;
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                n: n,
+                g: g,
+                type: ty,
+            },
+            value: {
+                n: n.value,
+                g: g.value,
+                type: ty.value,
+            }
+        };
+    };
+
+    visitXref_type: ((ctx: Xref_typeContext) => XRefTypeNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, "f");
+
+        const ty = ctx.XREF_TYPE_N() || ctx.XREF_TYPE_F();
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: ty,
+            value: ty.getText() as "n" | "f",
+        };
+    };
+
+    // trailer
+
+    visitTrailer: ((ctx: TrailerContext) => TrailerNode) = ctx => {
+        if (ctx.exception) return this.errorNode(ctx, { dict: {}, xrefOffset: -1 });
+
+        const dict = ctx.dict().accept(this) as DictNode;
+        const xrefOffset = ctx.integer().accept(this) as IntegerNode;
+        return {
+            ctx: ctx,
+            position: calcPosition(ctx),
+            src: {
+                k_trailer: ctx.K_TRAILER(),
+                dict: dict,
+                k_startxref: ctx.K_STARTXREF(),
+                xrefOffset: xrefOffset,
+                eofMarker: ctx.H_EOF(),
+            },
+            value: {
+                dict: dict.value,
+                xrefOffset: xrefOffset.value,
+            }
         };
     };
 

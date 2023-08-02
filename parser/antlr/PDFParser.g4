@@ -75,32 +75,13 @@ indirect_reference: integer integer K_R;
 
 // 固定フォーマットの検証は AST 作成のタイミングで対応する
 
-xref_section: xref_header xref_subsection*;
+xref_section: K_XREF xref_subsection*;
 
 xref_subsection: xref_subsection_header xref_entry*;
 xref_subsection_header: integer integer;
 xref_entry: integer integer xref_type;
-xref_header: K_XREF;
 xref_type: XREF_TYPE_N | XREF_TYPE_F;
 
 // trailer
 
-trailer: trailer_header dict startxref integer eof_marker;
-trailer_header: K_TRAILER;
-
-startxref: K_STARTXREF;
-eof_marker: H_EOF;
-
-// keyword: K_OBJ | K_ENDOBJ | K_STREAM | K_ENDSTREAM | K_XREF | K_TRAILER | K_STARTXREF | K_TRUE |
-// K_FALSE | K_R | K_NULL;
-
-// delimiter_char: LSTR_QUOTE_OPEN | RIGHT_PARENTHESIS | HSTR_QUOTE_OPEN | GREATER_THAN | ARRAY_OPEN
-// | ARRAY_CLOSE | NAME_PREFIX | COMMENT_PREFIX | LEFT_CURLY_BRACKET | RIGHT_CURLY_BRACKET;
-
-// whitespace: (WHITE_SPACE | eol_marker)+;
-
-// eol_marker: (EOL_MARKER | comment)+;
-
-// any: .;
-
-// unexpected: any;
+trailer: K_TRAILER dict K_STARTXREF integer H_EOF;
