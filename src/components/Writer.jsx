@@ -85,7 +85,7 @@ function Writer({ value, autoXref, onChange }) {
 
     // (, <, [ 入力時に閉じquoteも補完する
     useEffect(() => {
-        if (editor) {
+        if (editor && false) {
             const model = editor.getModel();
             editor.onDidType(text => {
                 function closeQuote(text) {

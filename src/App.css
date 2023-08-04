@@ -6,17 +6,19 @@
 
 .main-container {
     flex-grow: 1;
+    overflow: hidden;
 }
 
 .main-row {
     height: 100%;
-    overflow: hidden;
 }
 
 .writer-col {
     height: 100%;
+    overflow: hidden;
 }
 
 .viewer-col {
     height: 100%;
+    overflow: hidden;
 }

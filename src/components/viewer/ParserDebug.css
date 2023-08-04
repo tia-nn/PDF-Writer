@@ -1,0 +1,22 @@
+.viewer-debug {
+    height: 100%;
+    width: 100%;
+    overflow: scroll;
+}
+
+.viewer-debug-inner {
+    height: 100%;
+    width: 100%;
+}
+
+.viewer-debug * li {
+    white-space: nowrap;
+}
+
+.viewer-debug * pre {
+    display: inline;
+}
+
+li.error {
+    color: rgb(255, 55, 55);
+}

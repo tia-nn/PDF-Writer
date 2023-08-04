@@ -4,7 +4,7 @@ options {
 }
 
 // TODO: incremental update に対応
-start: H_PDF? body xref_section? trailer?;
+start: H_PDF body xref_section trailer;
 
 body: indirect_object_define*;
 

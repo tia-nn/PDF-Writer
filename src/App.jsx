@@ -26,6 +26,7 @@ function App() {
                         ></Writer></Col>
                         <Col className='viewer-col'><Viewer
                             value={value}
+                            type="tree"
                         ></Viewer></Col>
                     </Row>
                 </Container>

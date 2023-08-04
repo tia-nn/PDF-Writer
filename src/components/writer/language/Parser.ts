@@ -1,19 +1,102 @@
 import antlr4 from "antlr4";
 import PDFLexer from "../../../../parser/antlr/dist/PDFLexer";
-import PDFParser from "../../../../parser/antlr/dist/PDFParser";
+import PDFParser, { StartContext } from "../../../../parser/antlr/dist/PDFParser";
 import { ASTVisitor } from "../../../../parser/ast/ast-visitor";
+import { StartNode } from "../../../../parser/ast/ast/start";
+import { Scope } from "../../../../parser/ast/ast/scope";
+import { BaseASTNode } from "../../../../parser/ast/ast/base";
 
 
-export function parse(v: string) {
+export function tree(v: string): StartContext {
     const chars = new antlr4.CharStream(v);
     const lexer = new PDFLexer(chars);
+    console.log(new PDFLexer(chars));
     const tokens = new antlr4.CommonTokenStream(lexer);
+    console.log(new antlr4.CommonTokenStream(lexer));
     const parser = new PDFParser(tokens);
     parser.buildParseTrees = true;
     const tree = parser.start();
 
-    /** @type {import("../../parser/ast/ast/start").StartNode} */
-    const ast = new ASTVisitor().visit(tree);
+    return tree;
+}
 
-    return [tree, ast];
+export function parseTree(t: StartContext): StartNode {
+    const ast = new ASTVisitor().visit(t);
+
+    return ast as StartNode;
+}
+
+export function parse(v: string): [StartContext, StartNode] {
+    const t = tree(v);
+
+    const ast = new ASTVisitor().visit(t);
+
+    return [t, ast as StartNode];
+}
+
+export function scope(node: StartNode, pos: number): Scope {
+    if (inRange(node, pos)) {
+        if (node.src.trailer && node.src.trailer.src.dict && inRangeBetween(node.src.trailer.src.dict.position.start + 1, node.src.trailer.src.dict.position.stop, pos)) {
+
+            const dict = node.src.trailer.src.dict;
+            if (dict.src == null) {
+                return {
+                    kind: "others",
+                    node: node,
+                };
+            }
+
+            for (let i = 0; i < dict.src.contents.length; i++) {
+                const c = dict.src.contents[i];
+                if (!inRange(c, pos)) {
+                    continue;
+                }
+                if (c.src == null) {
+                    return {
+                        kind: "others",
+                        node: node,
+                    };
+                }
+                const key = c.src.name;
+                const value = c.src.object;
+                if (inRange(key, pos)) {
+                    return {
+                        kind: "trailerdict",
+                        node: node.src.trailer.src.dict,
+                        state: { kind: "key" },
+                    };
+                } else {
+                    return {
+                        kind: "trailerdict",
+                        node: node.src.trailer.src.dict,
+                        state: { kind: "value", key: key },
+                    };
+                }
+            }
+
+            return {
+                kind: "trailerdict",
+                node: node.src.trailer.src.dict,
+                state: { kind: "key" },
+            };
+        }
+
+        return {
+            kind: "others",
+            node: node,
+        };
+    } else {
+        return {
+            kind: "others",
+            node: node,
+        };
+    }
+}
+
+function inRange(node: BaseASTNode, pos: number) {
+    return node.position.start + 1 <= pos && pos < node.position.stop + 2;
+}
+
+function inRangeBetween(start: number, end: number, pos: number) {
+    return start < pos && pos < end;
 }
