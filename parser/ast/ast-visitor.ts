@@ -1,7 +1,7 @@
 import { ParserRuleContext, TerminalNode } from "antlr4";
 import { ArrayContext, BodyContext, DictContext, Dict_pairContext, Escape_sequenceContext, Hex_stringContext, Hex_string_contentContext, Indirect_object_defineContext, Indirect_referenceContext, IntegerContext, Literal_stringContext, Literal_string_contentContext, Literal_string_innerContext, NameContext, Name_contentContext, Null_objContext, NumberContext, ObjectContext, RealContext, StartContext, StreamContext, Stream_mainContext, StringContext, TrailerContext, Xref_entryContext, Xref_sectionContext, Xref_subsectionContext, Xref_subsection_headerContext, Xref_typeContext } from "../antlr/dist/PDFParser";
 import PDFParserVisitor from "../antlr/dist/PDFParserVisitor";
-import { BaseASTNode } from "./ast/base";
+import { BaseASTNode, ErrorReport } from "./ast/base";
 import { Position } from "./ast/position";
 import { IntegerNode, NumberKindInteger, NumberKindReal, NumberNode, RealNode } from "./ast/number";
 import { NameContentNode, NameNode } from "./ast/name";
@@ -20,14 +20,34 @@ import { StartNode } from "./ast/start";
 export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
     visitStart: ((ctx: StartContext) => StartNode) = ctx => {
+        const errors: ErrorReport[] = [];
+        console.log(ctx);
+        if (ctx.exception) return this.errorNode(ctx, { body: [] });
+
+        const header = ctx.H_PDF();
         const body = ctx.body().accept(this) as BodyNode;
         const xref = ctx.xref_section()?.accept(this) as XRefSectionNode | undefined;
         const trailer = ctx.trailer()?.accept(this) as TrailerNode | undefined;
+
+        if (!header) {
+            errors.push({
+                position: calcPositionStart(ctx),
+                message: "missing PDF Header.",
+            });
+        }
+        if (!xref) {
+            errors.push({
+                position: calcPositionStart(ctx),
+                message: "missing xref table.",
+            });
+        }
+
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
-                header: ctx.H_PDF(),
+                header: header,
                 body: body,
                 xref: xref,
                 trailer: trailer,
@@ -45,6 +65,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const d = ctx.indirect_object_define_list().map(n => n.accept(this) as IndirectDefineNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: d,
@@ -60,6 +81,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const genNum = ctx.integer(1)?.accept(this) as IntegerNode | undefined;
         const obj = ctx.object()?.accept(this) as ObjectNode | undefined;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -89,31 +111,40 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const string = ctx.string_();
         const null_ = ctx.null_obj();
         const src: ObjectNode['src'] = indirect ? {
+            _kind: "unionnode",
             kind: "reference",
             node: indirect.accept(this),
         } as ObjKindIndirectReference : stream ? {
+            _kind: "unionnode",
             kind: "stream",
             node: stream.accept(this),
         } as ObjKindStream : dict ? {
+            _kind: "unionnode",
             kind: "dict",
             node: dict.accept(this),
         } as ObjKindDict : array ? {
+            _kind: "unionnode",
             kind: "array",
             node: array.accept(this),
         } as ObjKindArray : name ? {
+            _kind: "unionnode",
             kind: "name",
             node: name.accept(this),
         } as ObjKindName : number ? {
+            _kind: "unionnode",
             kind: "number",
             node: number.accept(this),
         } as ObjKindNumber : string ? {
+            _kind: "unionnode",
             kind: "string",
             node: string.accept(this),
         } as ObjKindString : {
+            _kind: "unionnode",
             kind: "null",
             node: null_.accept(this),
         } as ObjKindNull;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             src: src,
             value: src.node.value,
@@ -129,13 +160,16 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const integer = ctx.integer();
         const real = ctx.real();
         const src: NumberNode['src'] = integer ? {
+            _kind: "unionnode",
             kind: "integer",
             node: integer.accept(this),
         } as NumberKindInteger : {
+            _kind: "unionnode",
             kind: "real",
             node: real.accept(this),
         } as NumberKindReal;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             src: src,
             value: src.node.value,
@@ -149,6 +183,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const src = ctx.INTEGER();
         const valueStr = src.getText();
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: src,
@@ -164,6 +199,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const src = ctx.FLOAT();
         const valueStr = src.getText();
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: src,
@@ -178,6 +214,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const contents = ctx.name_content_list().map(n => n.accept(this) as NameContentNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -198,24 +235,28 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         let value: string;
         if (esc) {
             src = {
+                _kind: "unionterminal",
                 kind: "escape",
                 node: esc,
             };
             value = String.fromCharCode(parseInt(esc.getText().substring(1)));
         } else if (inv) {
             src = {
+                _kind: "unionterminal",
                 kind: "invalid",
                 node: inv,
             };
             value = inv.getText();
         } else {
             src = {
+                _kind: "unionterminal",
                 kind: "content",
                 node: content,
             };
             value = content.getText();
         }
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             src: src,
             value: value,
@@ -231,13 +272,16 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const literal = ctx.literal_string();
         const hex = ctx.hex_string();
         const src: StringNode['src'] = literal ? {
+            _kind: "unionnode",
             kind: "literal",
             node: literal.accept(this),
         } as StringKindLiteral : {
+            _kind: "unionnode",
             kind: "hex",
             node: hex.accept(this),
         } as StringKindHex;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             src: src,
             value: src.node.value,
@@ -250,6 +294,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const contents = ctx.literal_string_content_list().map(n => n.accept(this) as LStrContentNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -273,30 +318,35 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         let value: string;
         if (escape) {
             src = {
+                _kind: "unionnode",
                 kind: "escape",
                 node: escape.accept(this) as LStrEscapeNode
             };
             value = src.node.value;
         } else if (str) {
             src = {
+                _kind: "unionnode",
                 kind: "lstr",
                 node: str.accept(this) as LStringNode,
             };
             value = '(' + src.node.value + ')';
         } else if (inv) {
             src = {
+                _kind: "unionterminal",
                 kind: "invalid_escape",
                 node: inv
             };
-            value = src.node.getText().substring(1);
+            value = inv.getText().substring(1);
         } else {
             src = {
+                _kind: "unionterminal",
                 kind: "content",
                 node: content
             };
             value = content.getText();
         }
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: src,
@@ -309,6 +359,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const contents = ctx.literal_string_content_list().map(n => n.accept(this) as LStrContentNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -330,6 +381,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         let value: string;
         if (char) {
             src = {
+                _kind: "unionterminal",
                 kind: "char",
                 node: char
             };
@@ -355,18 +407,21 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
             }
         } else if (octal) {
             src = {
+                _kind: "unionterminal",
                 kind: "octal",
                 node: octal,
             };
             value = String.fromCharCode(parseInt(octal.getText().substring(1), 8));
         } else {
             src = {
+                _kind: "unionterminal",
                 kind: "newline",
                 node: newline,
             };
             value = '';
         }
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: src,
@@ -379,6 +434,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const contents = ctx.hex_string_content_list().map(n => n.accept(this) as HStrContentNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -399,18 +455,21 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         let value: string;
         if (content) {
             src = {
+                _kind: "unionterminal",
                 kind: "content",
                 node: content
             };
             value = split2(content.getText()).reduce((v, s) => v + String.fromCharCode(parseInt(s, 16)), "");
         } else {
             src = {
+                _kind: "unionterminal",
                 kind: "invalid",
                 node: invalid,
             };
             value = '';
         }
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: src,
@@ -424,6 +483,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         if (ctx.exception) return this.errorNode(ctx, null);
 
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: ctx.K_NULL(),
@@ -438,6 +498,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const contents = ctx.object_list().map(n => n.accept(this) as ObjectNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -456,6 +517,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const pairs = ctx.dict_pair_list().map(n => n.accept(this) as DictPairNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -473,6 +535,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const name = ctx.name().accept(this) as NameNode;
         const obj = ctx.object()?.accept(this) as ObjectNode | undefined;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -494,6 +557,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const dict = ctx.dict().accept(this) as DictNode;
         const main = ctx.stream_main().accept(this) as StreamMainNode;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -531,6 +595,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         }
 
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -549,6 +614,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const objNum = ctx.integer(0)?.accept(this) as IntegerNode | undefined;
         const genNum = ctx.integer(1)?.accept(this) as IntegerNode | undefined;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -570,6 +636,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const entries = ctx.xref_subsection_list().map(n => n.accept(this) as XRefSubsectionNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -586,6 +653,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const header = ctx.xref_subsection_header().accept(this) as XRefSubsectionHeaderNode;
         const entries = ctx.xref_entry_list().map(n => n.accept(this) as XRefEntryNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -604,6 +672,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const [start, len] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -623,6 +692,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const [n, g] = ctx.integer_list().map(n => n.accept(this) as IntegerNode);
         const ty = ctx.xref_type().accept(this) as XRefTypeNode;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
@@ -643,6 +713,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         const ty = ctx.XREF_TYPE_N() || ctx.XREF_TYPE_F();
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: ty,
@@ -655,21 +726,27 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
     visitTrailer: ((ctx: TrailerContext) => TrailerNode) = ctx => {
         if (ctx.exception) return this.errorNode(ctx, { dict: {}, xrefOffset: -1 });
 
-        const dict = ctx.dict().accept(this) as DictNode;
-        const xrefOffset = ctx.integer().accept(this) as IntegerNode;
+        let k_trailer: TerminalNode | undefined = ctx.K_TRAILER();
+        if (((k_trailer as ErrorNode) as ErrorNode)) {
+            k_trailer = undefined;
+        }
+        console.log(k_trailer);
+        const dict = ctx.dict()?.accept(this) as DictNode;
+        const xrefOffset = ctx.integer()?.accept(this) as IntegerNode;
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             src: {
-                k_trailer: ctx.K_TRAILER(),
+                k_trailer: k_trailer,
                 dict: dict,
                 k_startxref: ctx.K_STARTXREF(),
                 xrefOffset: xrefOffset,
                 eofMarker: ctx.H_EOF(),
             },
             value: {
-                dict: dict.value,
-                xrefOffset: xrefOffset.value,
+                dict: dict?.value,
+                xrefOffset: xrefOffset?.value,
             }
         };
     };
@@ -678,12 +755,23 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
     errorNode<RET extends BaseASTNode>(ctx: RET["ctx"], defaultValue: RET['value']): RET {
         return {
+            _kind: "baseastnode",
             ctx: ctx,
             position: calcPosition(ctx),
             value: defaultValue,
             exception: ctx.exception,
         } as RET;
     }
+}
+
+function calcPositionStart(ctx: ParserRuleContext): Position {
+    return {
+        line: ctx.start.line,
+        column: ctx.start.column,
+        start: ctx.start.start,
+        stop: ctx.start.stop,
+        length: ctx.start.stop - ctx.start.start + 1
+    };
 }
 
 function calcPosition(ctx: ParserRuleContext): Position {

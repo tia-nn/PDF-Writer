@@ -8,11 +8,9 @@ import { BaseASTNode } from "../../../../parser/ast/ast/base";
 
 
 export function tree(v: string): StartContext {
-    const chars = new antlr4.CharStream(v);
+    const chars = antlr4.CharStreams.fromString(v);
     const lexer = new PDFLexer(chars);
-    console.log(new PDFLexer(chars));
     const tokens = new antlr4.CommonTokenStream(lexer);
-    console.log(new antlr4.CommonTokenStream(lexer));
     const parser = new PDFParser(tokens);
     parser.buildParseTrees = true;
     const tree = parser.start();

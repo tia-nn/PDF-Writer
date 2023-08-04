@@ -110,7 +110,6 @@ export type DebugASTMissingTerminal = {
 
 export class DebugAST {
     visitNode(key: string, node: BaseASTNode): DebugASTNode | DebugASTErrorNode {
-        console.log('visitNode start', key, node);
         if (node.src) {
             if (Array.isArray(node.src)) {
                 return {
@@ -127,20 +126,13 @@ export class DebugAST {
                     node: node,
                 };
             } catch {
-                console.log('this is record src', node.src);
                 const src = node.src as Record<string, SrcNode | SrcNode[]>;
                 const keys = Object.keys(src);
-                let children: DebugASTNode[] = [];
+                let children: (DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal)[] = [];
                 for (let i = 0; i < keys.length; i++) {
                     const key = keys[i];
                     const n = src[key];
-                    console.log('record src key', key, n);
-                    children.push({
-                        kind: "node",
-                        key: key,
-                        children: Array.isArray(n) ? n.map(nn => this.visitSrc(key, nn)) : [this.visitSrc(key, n)],
-                        node: node,
-                    });
+                    children.push(...(Array.isArray(n) ? n.map(nn => this.visitSrc(key, nn)) : [this.visitSrc(key, n)]));
                 }
                 return {
                     kind: "node",
@@ -160,11 +152,11 @@ export class DebugAST {
     };
 
     visitSrc(key: string, src: SrcNode): DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal {
-        console.log('visitsrc', key, src);
-        console.log('src instanceof BaseASTNode', src instanceof BaseASTNode);
-        if (src instanceof BaseASTNode) {
-            console.log('baseastnode', key, src);
-            return this.visitNode(key, src);
+        if (!src) {
+            return {
+                kind: "missing-terminal",
+                key: key,
+            };
         } else if (src instanceof TerminalNode) {
             return {
                 kind: "terminal",
@@ -172,17 +164,18 @@ export class DebugAST {
                 src: src.getText(),
                 terminal: src,
             };
-        } else if (src instanceof UnionTerminal) {
+        } else if (src._kind === "baseastnode") {
+            return this.visitNode(key, src);
+        } else if (src._kind === "unionterminal") {
             return {
                 kind: "terminal",
                 key: key,
                 src: src.node.getText(),
                 terminal: src.node,
             };
-        } else if (src instanceof UnionNode) {
+        } else if (src._kind === "unionnode") {
             return this.visitNode(key, src.node);
         } else {
-            console.error(key, src);
             throw new Error(key);
         }
     };

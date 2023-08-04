@@ -10,7 +10,7 @@ import React from "react";
  * @param {string} props.text
  * @returns {React.JSX.Element}
  */
-function IFrameViewer({ text }) {
+function ParserDebug({ text }) {
     const tree = parser.tree(text);
 
     const ast = (() => {
@@ -23,12 +23,19 @@ function IFrameViewer({ text }) {
     })();
 
     const walker = new DebugListener();
-    ParseTreeWalker.DEFAULT.walk(walker, tree);
-    console.log(walker.currentNode);
-
-    const a = <ul>{buildAst(new DebugAST().visitNode('start', ast))}</ul>;
-
+    ParseTreeWalker.DEFAULT.walk(walker, parser.tree(text));
     const main = walker.currentNode ? <ul>{buildTree(walker.currentNode)}</ul> : "Error.";
+
+    console.log(ast);
+
+    const a = (() => {
+        try {
+            return ast ? <ul>{buildAst(new DebugAST().visitNode('start', ast))}</ul> : "Error.";
+        } catch (e) {
+            console.error(e);
+            return null;
+        }
+    })();
 
     return (
         <section className="viewer-debug">
@@ -44,16 +51,15 @@ function IFrameViewer({ text }) {
  * @return {React.JSX.Element}
  */
 function buildAst(node) {
-    // console.log('node instanceof TerminalNode', node.src. instanceof TerminalNode)
     if (node.kind === "node") {
         return (<>
             <li>{node.key}</li>
-            <ul>{node.children.map(buildTree)}</ul>
+            <ul>{node.children.map(buildAst)}</ul>
         </>);
     } else if (node.kind === "error-node") {
         return (<>
             <li className="error">{node.key}</li>
-            <ul>{node.children.map(buildTree)}</ul>
+            <ul>{node.children.map(buildAst)}</ul>
         </>);
     } else if (node.kind === "terminal") {
         return (<li>{node.key} : <code><pre>{node.src}</pre></code></li>);
@@ -83,4 +89,4 @@ function buildTree(node) {
     }
 }
 
-export default IFrameViewer;
+export default ParserDebug;
