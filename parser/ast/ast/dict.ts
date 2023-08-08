@@ -9,22 +9,22 @@ interface ObjectRecord extends Record<string, ObjectValueWithoutSelf | ObjectRec
 
 export interface DictNode extends BaseASTNode {
     ctx: DictContext;
-    src?: {
-        dictOpen: TerminalNode,
+    src: {
+        dictOpen?: TerminalNode,
         contents: DictPairNode[],
-        dictClose: TerminalNode,
+        dictClose?: TerminalNode,
     };
     value: ObjectRecord;
 }
 
 export interface DictPairNode extends BaseASTNode {
     ctx: Dict_pairContext;
-    src?: {
-        name: NameNode,
+    src: {
+        name?: NameNode,
         object?: ObjectNode,
     };
     value: {
-        name: string,
+        name?: string,
         object?: ObjectRecord['T'];
     };
 }

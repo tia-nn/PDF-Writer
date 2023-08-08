@@ -8,10 +8,10 @@ type ArrayValue = ((ObjKindDict | ObjKindName | ObjKindNumber | ObjKindString | 
 
 export interface ArrayNode extends BaseASTNode {
     ctx: ArrayContext;
-    src?: {
-        arrayOpen: TerminalNode,
+    src: {
+        arrayOpen?: TerminalNode,
         contents: ObjectNode[],
-        arrayClose: TerminalNode,
+        arrayClose?: TerminalNode,
     },
     value: ArrayValue;
 }

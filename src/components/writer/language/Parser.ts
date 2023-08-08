@@ -4,7 +4,7 @@ import PDFParser, { StartContext } from "../../../../parser/antlr/dist/PDFParser
 import { ASTVisitor } from "../../../../parser/ast/ast-visitor";
 import { StartNode } from "../../../../parser/ast/ast/start";
 import { Scope } from "../../../../parser/ast/ast/scope";
-import { BaseASTNode } from "../../../../parser/ast/ast/base";
+import { BaseASTNode, ErrorReport } from "../../../../parser/ast/ast/base";
 
 
 export function tree(v: string): StartContext {
@@ -24,72 +24,73 @@ export function parseTree(t: StartContext): StartNode {
     return ast as StartNode;
 }
 
-export function parse(v: string): [StartContext, StartNode] {
+export function parse(v: string): [StartContext, StartNode, ErrorReport[]] {
     const t = tree(v);
 
-    const ast = new ASTVisitor().visit(t);
+    const parser = new ASTVisitor();
+    const ast = parser.visit(t);
 
-    return [t, ast as StartNode];
+    return [t, ast as StartNode, parser.errors];
 }
 
-export function scope(node: StartNode, pos: number): Scope {
-    if (inRange(node, pos)) {
-        if (node.src.trailer && node.src.trailer.src.dict && inRangeBetween(node.src.trailer.src.dict.position.start + 1, node.src.trailer.src.dict.position.stop, pos)) {
+// export function scope(node: StartNode, pos: number): Scope {
+//     if (inRange(node, pos)) {
+//         if (node.src.trailer && node.src.trailer.src.dict && inRangeBetween(node.src.trailer.src.dict.position.start + 1, node.src.trailer.src.dict.position.stop, pos)) {
 
-            const dict = node.src.trailer.src.dict;
-            if (dict.src == null) {
-                return {
-                    kind: "others",
-                    node: node,
-                };
-            }
+//             const dict = node.src.trailer.src.dict;
+//             if (dict.src == null) {
+//                 return {
+//                     kind: "others",
+//                     node: node,
+//                 };
+//             }
 
-            for (let i = 0; i < dict.src.contents.length; i++) {
-                const c = dict.src.contents[i];
-                if (!inRange(c, pos)) {
-                    continue;
-                }
-                if (c.src == null) {
-                    return {
-                        kind: "others",
-                        node: node,
-                    };
-                }
-                const key = c.src.name;
-                const value = c.src.object;
-                if (inRange(key, pos)) {
-                    return {
-                        kind: "trailerdict",
-                        node: node.src.trailer.src.dict,
-                        state: { kind: "key" },
-                    };
-                } else {
-                    return {
-                        kind: "trailerdict",
-                        node: node.src.trailer.src.dict,
-                        state: { kind: "value", key: key },
-                    };
-                }
-            }
+//             for (let i = 0; i < dict.src.contents.length; i++) {
+//                 const c = dict.src.contents[i];
+//                 if (!inRange(c, pos)) {
+//                     continue;
+//                 }
+//                 if (c.src == null) {
+//                     return {
+//                         kind: "others",
+//                         node: node,
+//                     };
+//                 }
+//                 const key = c.src.name;
+//                 const value = c.src.object;
+//                 if (inRange(key, pos)) {
+//                     return {
+//                         kind: "trailerdict",
+//                         node: node.src.trailer.src.dict,
+//                         state: { kind: "key" },
+//                     };
+//                 } else {
+//                     return {
+//                         kind: "trailerdict",
+//                         node: node.src.trailer.src.dict,
+//                         state: { kind: "value", key: key },
+//                     };
+//                 }
+//             }
 
-            return {
-                kind: "trailerdict",
-                node: node.src.trailer.src.dict,
-                state: { kind: "key" },
-            };
-        }
+//             return {
+//                 kind: "trailerdict",
+//                 node: node.src.trailer.src.dict,
+//                 state: { kind: "key" },
+//             };
+//         }
 
-        return {
-            kind: "others",
-            node: node,
-        };
-    } else {
-        return {
-            kind: "others",
-            node: node,
-        };
-    }
-}
+//         return {
+//             kind: "others",
+//             node: node,
+//         };
+//     } else {
+//         return {
+//             kind: "others",
+//             node: node,
+//         };
+//     }
+// }
 
 function inRange(node: BaseASTNode, pos: number) {
     return node.position.start + 1 <= pos && pos < node.position.stop + 2;

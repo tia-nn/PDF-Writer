@@ -10,7 +10,7 @@ export interface StartNode extends BaseASTNode {
     ctx: StartContext;
     src: {
         header?: TerminalNode,
-        body: BodyNode,
+        body?: BodyNode,
         xref?: XRefSectionNode,
         trailer?: TrailerNode,
     };

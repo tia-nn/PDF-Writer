@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
-import MonarchLanguagePDF from "./writer/language/monarch-language-pdf";
 
 import * as autoFill from './writer/language/AutoFill';
 import * as parser from './writer/language/Parser';
 import * as PDFLanguage from './writer/language/PDFLanguage';
+import { createErrorMarker } from "./writer/monaco/Marker";
+import { detectErrorStart } from "../../parser/ast/detect-errors";
 
 /**
  * @typedef {import('antlr4/tree/TerminalNode').default} TerminalNode
  * @typedef {import('antlr4/context/ParserRuleContext').default} ParserRuleContext
+ * @typedef {import('../../parser/antlr/dist/PDFParser').StartContext} StartContext
+ * @typedef {import('../../parser/ast/ast/start').StartNode} StartNode
  */
 /**
  * @typedef {import("@monaco-editor/react").Monaco} Monaco
@@ -25,11 +28,11 @@ import * as PDFLanguage from './writer/language/PDFLanguage';
 /**
  * @param {Object} props
  * @param {string} props.value
- * @param {boolean} props.autoXref
  * @param {function(string):void} props.onChange
+ * @param {{completeClosingQuote: boolean, autofillXrefTable: boolean}} props.options
  * @returns {JSX.Element}
  */
-function Writer({ value, autoXref, onChange }) {
+function Writer({ value, options, onChange }) {
     /** @type {import("react").RefObject<Position|null>} */
     const preventChangeEvent = useRef(false);
 
@@ -40,12 +43,18 @@ function Writer({ value, autoXref, onChange }) {
     const [[_monaco, _editor], setMonacoEditor] = useState([monaco, editor]);
     monaco = _monaco;
     editor = _editor;
+    const model = editor?.getModel();
+
+    /** @type {import("react").MutableRefObject<{tree?: StartContext, ast?: StartNode, src?: string, errors?: import("../../parser/ast/ast/base").ErrorReport[]}>} */
+    const lastParsed = useRef({});
+
+
+    // - - - handler - - -
 
     const handleEditorMount = useCallback((mountedEditor, mountedMonaco) => {
         PDFLanguage.registerLanguagePDF(mountedMonaco);
         setMonacoEditor([mountedMonaco, mountedEditor]);
     }, []);
-
 
     /**
      * @callback EditorChangeHandler
@@ -55,7 +64,7 @@ function Writer({ value, autoXref, onChange }) {
     const handleChange = useCallback(/** @type {EditorChangeHandler} */(newValue, ev) => {
         if (preventChangeEvent.current) return;
 
-        if (autoXref && editor) {
+        if (options.autofillXrefTable && editor) {
 
             const model = editor.getModel();
             if (model == null) {
@@ -64,7 +73,9 @@ function Writer({ value, autoXref, onChange }) {
             }
 
             try {
-                const [tree, ast] = parser.parse(newValue);
+                const [tree, ast, errs] = parser.parse(newValue);
+                lastParsed.current = { tree, ast, src: newValue, errors: errs };  // parse() をキャッシュ
+
                 const xref = autoFill.buildXrefTable(tree, ast);
                 const xrefEditOp = buildEditOperation(editor, xref.start, xref.end, xref.text);
 
@@ -83,9 +94,24 @@ function Writer({ value, autoXref, onChange }) {
 
     }, [monaco, editor]);
 
+
+    // - - - effect - - -
+
+    // parse() のキャッシュがヒットしなかったら parse() する
+    useEffect(() => {
+        if (value != lastParsed.current.src) {
+            try {
+                const [tree, ast, errs] = parser.parse(value);
+                lastParsed.current = { tree, ast, src: value, errors: errs };
+            } catch (e) {
+                // console.error(e);
+            }
+        }
+    }, [value]);
+
     // (, <, [ 入力時に閉じquoteも補完する
     useEffect(() => {
-        if (editor && false) {
+        if (editor && options.completeClosingQuote) {
             const model = editor.getModel();
             editor.onDidType(text => {
                 function closeQuote(text) {
@@ -117,7 +143,18 @@ function Writer({ value, autoXref, onChange }) {
                 }
             });
         }
-    }, [editor]);
+    }, [editor, options.completeClosingQuote]);
+
+    useEffect(() => {
+        if (monaco && model && lastParsed.current.ast) {
+            const errors = detectErrorStart(lastParsed.current.ast);
+            const markers = createErrorMarker(errors, model);
+            console.log(errors);
+            // const markers = createErrorMarker(lastParsed.current.errors || [], model);
+            monaco.editor.setModelMarkers(model, 'writer', markers);
+        }
+    }, [value]);
+
 
     return (<main className="writer-main">
         <Editor className="writer-editor"

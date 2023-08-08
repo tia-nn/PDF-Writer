@@ -7,11 +7,11 @@ import { IntegerNode } from "./number";
 export interface TrailerNode extends BaseASTNode {
     ctx: TrailerContext;
     src: {
-        k_trailer: TerminalNodeWrapper,
+        k_trailer?: TerminalNode,
         dict?: DictNode,
-        k_startxref?: TerminalNodeWrapper,
+        k_startxref?: TerminalNode,
         xrefOffset?: IntegerNode,
-        eofMarker?: TerminalNodeWrapper,
+        eofMarker?: TerminalNode,
     };
     value: {
         dict?: DictNode['value'],

@@ -5,8 +5,8 @@ import { IntegerNode } from "./number";
 
 export interface XRefSectionNode extends BaseASTNode {
     ctx: Xref_sectionContext;
-    src?: {
-        k_xref: TerminalNode,
+    src: {
+        k_xref?: TerminalNode,
         subsections: XRefSubsectionNode[],
     };
     value: XRefSubsectionNode['value'][];
@@ -15,11 +15,11 @@ export interface XRefSectionNode extends BaseASTNode {
 export interface XRefSubsectionNode extends BaseASTNode {
     ctx: Xref_subsectionContext;
     src: {
-        header: XRefSubsectionHeaderNode,
+        header?: XRefSubsectionHeaderNode,
         entries: XRefEntryNode[],
     };
     value: {
-        header: XRefSubsectionHeaderNode['value'],
+        header?: XRefSubsectionHeaderNode['value'],
         entries: XRefEntryNode['value'][],
     };
 }
@@ -27,31 +27,31 @@ export interface XRefSubsectionNode extends BaseASTNode {
 export interface XRefSubsectionHeaderNode extends BaseASTNode {
     ctx: Xref_subsection_headerContext;
     src: {
-        start: IntegerNode,
-        len: IntegerNode,
+        start?: IntegerNode,
+        len?: IntegerNode,
     };
     value: {
-        start: number,
-        len: number,
+        start?: number,
+        len?: number,
     };
 }
 
 export interface XRefEntryNode extends BaseASTNode {
     ctx: Xref_entryContext;
     src: {
-        n: IntegerNode,
-        g: IntegerNode,
-        type: XRefTypeNode,
+        n?: IntegerNode,
+        g?: IntegerNode,
+        type?: XRefTypeNode,
     };
     value: {
-        n: number,
-        g: number,
-        type: XRefTypeNode['value'],
+        n?: number,
+        g?: number,
+        type?: XRefTypeNode['value'],
     };
 }
 
 export interface XRefTypeNode extends BaseASTNode {
     ctx: Xref_typeContext;
     src?: TerminalNode;
-    value: "n" | "f";
+    value?: "n" | "f";
 }

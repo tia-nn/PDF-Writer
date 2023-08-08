@@ -5,9 +5,9 @@ import { DictNode } from "./dict";
 
 export interface StreamNode extends BaseASTNode {
     ctx: StreamContext;
-    src?: {
+    src: {
         dict?: DictNode,
-        main: StreamMainNode,
+        main?: StreamMainNode,
     };
     value: {
         dict: DictNode['value'],
@@ -17,9 +17,9 @@ export interface StreamNode extends BaseASTNode {
 
 export interface StreamMainNode extends BaseASTNode {
     ctx: Stream_mainContext;
-    src?: {
-        k_stream: TerminalNode,
-        content_endstream: TerminalNode,
+    src: {
+        k_stream?: TerminalNode,
+        content_endstream?: TerminalNode,
         // k_endstream: TerminalNode,
     };
     value: string;

@@ -60,7 +60,7 @@ XREF_TYPE_F: 'f';
 // XREF_INVALID: .;
 
 // others
-REGULAR_CHAR: ~[\u0000\t\f \r\n()<>[\]{}/%];
+REGULAR_CHAR: ~[\u0000\t\f \r\n()<>[\]{}/%]+;
 EOL_MARKER: ('\r\n' | '\r' | '\n') -> skip;
 WHITE_SPACE: [\u0000\t\f ] -> skip;
 EXCEPT_EOL_CHAR: ~[\n\r];

@@ -4,6 +4,6 @@ import { Null_objContext } from "../../antlr/dist/PDFParser";
 
 export interface NullObjectNode extends BaseASTNode {
     ctx: Null_objContext;
-    src: TerminalNode,
-    value: null;
+    src?: TerminalNode,
+    value?: null;
 }

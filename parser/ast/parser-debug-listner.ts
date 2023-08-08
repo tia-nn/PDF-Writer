@@ -109,20 +109,20 @@ export type DebugASTMissingTerminal = {
 };
 
 export class DebugAST {
-    visitNode(key: string, node: BaseASTNode): DebugASTNode | DebugASTErrorNode {
+    visitNode(key: string, node: BaseASTNode): DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal {
         if (node.src) {
             if (Array.isArray(node.src)) {
                 return {
                     kind: "node",
-                    key: key,
-                    children: node.src.map(s => this.visitSrc(key, s)),
+                    key: this.getName(node.ctx),
+                    children: node.src.map(s => this.visitSrc(this.getName(node.ctx), s)),
                     node: node,
                 };
             } else try {
                 return {
                     kind: "node",
                     key: key,
-                    children: [this.visitSrc(key, (node.src as SrcNode))],
+                    children: [this.visitSrc(this.getName(node.ctx), (node.src as SrcNode))],
                     node: node,
                 };
             } catch {
@@ -136,7 +136,7 @@ export class DebugAST {
                 }
                 return {
                     kind: "node",
-                    key: key,
+                    key: this.getName(node.ctx),
                     children: children,
                     node: node,
                 };
@@ -144,7 +144,7 @@ export class DebugAST {
         } else {
             return {
                 kind: "error-node",
-                key: key,
+                key: this.getName(node.ctx),
                 children: [],
                 node: node,
             };
@@ -196,5 +196,10 @@ export class DebugAST {
         }
     }
 
-
+    getName(ctx: ParserRuleContext) {
+        if (!ctx) return '';
+        const ruleIndex = (ctx as ParserRuleContextWithRuleIndex).ruleIndex;
+        const symbol = PDFParser.ruleNames[ruleIndex];
+        return symbol;
+    }
 }

@@ -24,11 +24,9 @@ function ParserDebug({ text }) {
 
     const walker = new DebugListener();
     ParseTreeWalker.DEFAULT.walk(walker, parser.tree(text));
-    const main = walker.currentNode ? <ul>{buildTree(walker.currentNode)}</ul> : "Error.";
+    const treeTree = walker.currentNode ? <ul>{buildTree(walker.currentNode)}</ul> : "Error.";
 
-    console.log(ast);
-
-    const a = (() => {
+    const astTree = (() => {
         try {
             return ast ? <ul>{buildAst(new DebugAST().visitNode('start', ast))}</ul> : "Error.";
         } catch (e) {
@@ -40,8 +38,9 @@ function ParserDebug({ text }) {
     return (
         <section className="viewer-debug">
             <div className="viewer-debug-inner">
-                {main}
-                {a}
+                {astTree}
+                <hr></hr>
+                {treeTree}
             </div>
         </section>
     );

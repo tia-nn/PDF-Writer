@@ -56,7 +56,7 @@ array: ARRAY_OPEN object* ARRAY_CLOSE;
 // dict
 
 dict: DICT_OPEN dict_pair* DICT_CLOSE;
-dict_pair: name object?;
+dict_pair: (name object?) | object;
 
 // stream
 

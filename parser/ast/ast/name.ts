@@ -4,17 +4,17 @@ import { NameContext, Name_contentContext } from "../../antlr/dist/PDFParser";
 
 export interface NameNode extends BaseASTNode {
     ctx: NameContext;
-    src?: {
-        prefix: TerminalNode,
+    src: {
+        prefix?: TerminalNode,
         contents: NameContentNode[],
     };
-    value: string;
+    value?: string;
 }
 
 export interface NameContentNode extends BaseASTNode {
     ctx: Name_contentContext;
     src?: NameCKindEscape | NameCKindInvalid | NameCKindContent;
-    value: string;
+    value?: string;
 }
 
 export interface NameCKindEscape extends UnionTerminal {

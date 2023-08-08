@@ -5,7 +5,7 @@ import { BaseASTNode, UnionNode } from "./base";
 export interface NumberNode extends BaseASTNode {
     ctx: NumberContext;
     src?: NumberKindInteger | NumberKindReal;
-    value: number;
+    value?: number;
 }
 
 export interface NumberKindInteger extends UnionNode {
@@ -21,7 +21,7 @@ export interface NumberKindReal extends UnionNode {
 export interface IntegerNode extends BaseASTNode {
     ctx: IntegerContext;
     src?: TerminalNode;
-    value: number;
+    value?: number;
     is10Digits?: boolean;
     is5Digits?: boolean;
 }
@@ -29,5 +29,5 @@ export interface IntegerNode extends BaseASTNode {
 export interface RealNode extends BaseASTNode {
     ctx: RealContext;
     src?: TerminalNode;
-    value: number;
+    value?: number;
 }

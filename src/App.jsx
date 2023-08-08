@@ -21,8 +21,11 @@ function App() {
                     <Row className='main-row'>
                         <Col className='writer-col'><Writer
                             value={value}
-                            autoXref={false}
                             onChange={handleChange}
+                            options={{
+                                autofillXrefTable: false,
+                                completeClosingQuote: false,
+                            }}
                         ></Writer></Col>
                         <Col className='viewer-col'><Viewer
                             value={value}

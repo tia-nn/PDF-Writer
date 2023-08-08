@@ -5,7 +5,7 @@ import { Literal_stringContext, Literal_string_contentContext, StringContext, Es
 export interface StringNode extends BaseASTNode {
     ctx: StringContext,
     src?: StringKindLiteral | StringKindHex;
-    value: string;
+    value?: string;
 }
 
 export interface StringKindLiteral extends UnionNode {
@@ -22,18 +22,18 @@ export interface StringKindHex extends UnionNode {
 
 export interface LStringNode extends BaseASTNode {
     ctx: Literal_stringContext | Literal_string_innerContext;
-    src?: {
-        LStrQuoteOpen: TerminalNode,
+    src: {
+        LStrQuoteOpen?: TerminalNode,
         LStrContents: LStrContentNode[],
-        LStrQuoteClose: TerminalNode,
+        LStrQuoteClose?: TerminalNode,
     };
-    value: string;
+    value?: string;
 }
 
 export interface LStrContentNode extends BaseASTNode {
     ctx: Literal_string_contentContext;
     src?: LStrContentKindEscape | LStrContentKindLStr | LStrContentKindInvalid | LStrContentKindContent;
-    value: string;
+    value?: string;
 }
 
 export interface LStrContentKindEscape extends UnionNode {
@@ -57,7 +57,7 @@ export interface LStrContentKindContent extends UnionTerminal {
 export interface LStrEscapeNode extends BaseASTNode {
     ctx: Escape_sequenceContext;
     src?: LStrEscKindChar | LStrEscKindOctal | LStrEscKindNewline;
-    value: string;
+    value?: string;
 }
 
 export interface LStrEscKindChar extends UnionTerminal {
@@ -76,18 +76,18 @@ export interface LStrEscKindNewline extends UnionTerminal {
 
 export interface HStringNode extends BaseASTNode {
     ctx: Hex_stringContext;
-    src?: {
-        HStrQuoteOpen: TerminalNode,
+    src: {
+        HStrQuoteOpen?: TerminalNode,
         HStrContents: HStrContentNode[],
-        HStrQuoteClose: TerminalNode,
+        HStrQuoteClose?: TerminalNode,
     };
-    value: string;
+    value?: string;
 }
 
 export interface HStrContentNode extends BaseASTNode {
     ctx: Hex_string_contentContext;
     src?: HStrContentKindContent | HStrContentKindInvalid;
-    value: string;
+    value?: string;
 }
 
 export interface HStrContentKindContent extends UnionTerminal {

@@ -8,7 +8,7 @@ export interface BaseASTNode {
     _kind: "baseastnode";
     ctx: ParserRuleContext;
     src?: NodeSrc;
-    value: any | Record<string, any>;
+    value?: any | Record<string, any>;
     position: Position;
     exception?: RecognitionException;
     errors?: ErrorReport[];
