@@ -55,14 +55,9 @@ function buildAst(node) {
             <li>{node.key}</li>
             <ul>{node.children.map(buildAst)}</ul>
         </>);
-    } else if (node.kind === "error-node") {
-        return (<>
-            <li className="error">{node.key}</li>
-            <ul>{node.children.map(buildAst)}</ul>
-        </>);
     } else if (node.kind === "terminal") {
         return (<li>{node.key} : <code><pre>{node.src}</pre></code></li>);
-    } else if (node.kind === "missing-terminal") {
+    } else if (node.kind === "missing") {
         return (<li className="error">{node.key} : <code><pre>{node.src}</pre></code></li>);
     } else {
         throw 'in buildAst';

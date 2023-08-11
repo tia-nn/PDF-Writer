@@ -14,8 +14,7 @@ export type ObjectKind = ObjKindIndirectReference | ObjKindStream | ObjKindDict 
 
 export interface ObjectNode extends BaseASTNode {
     ctx: ObjectContext;
-    src?: ObjectKind;
-    value: ObjectKind['node']['value'];
+    v?: { src: ObjectKind, };
 }
 
 export interface ObjKindIndirectReference extends UnionNode {

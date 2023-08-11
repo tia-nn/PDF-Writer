@@ -85,14 +85,7 @@ export class DebugListener extends PDFParserListener {
 export type DebugASTNode = {
     kind: "node",
     key: string,
-    children: (DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal)[],
-    node: BaseASTNode,
-};
-
-export type DebugASTErrorNode = {
-    kind: "error-node",
-    key: string,
-    children: (DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal)[],
+    children: (DebugASTNode | DebugASTTerminal | DebugASTMissing)[],
     node: BaseASTNode,
 };
 
@@ -103,36 +96,39 @@ export type DebugASTTerminal = {
     terminal: TerminalNode,
 };
 
-export type DebugASTMissingTerminal = {
-    kind: "missing-terminal",
+export type DebugASTMissing = {
+    kind: "missing",
     key: string,
 };
 
 export class DebugAST {
-    visitNode(key: string, node: BaseASTNode): DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal {
-        if (node.src) {
-            if (Array.isArray(node.src)) {
+    visitNode(key: string, node: BaseASTNode): DebugASTNode | DebugASTTerminal | DebugASTMissing {
+        const v = node.v; // { src: NodeSrc, value?: any, } | Record<string, { src: NodeSrc, value?: any, } | undefined> | undefined
+
+        if (v) {
+            if ('src' in v) {  // { src: NodeSrc, value?: any, }
+                const vSrc = v.src as NodeSrc;
                 return {
                     kind: "node",
                     key: this.getName(node.ctx),
-                    children: node.src.map(s => this.visitSrc(this.getName(node.ctx), s)),
+                    children: this.visitNodeSrc(this.getName(node.ctx), vSrc),
                     node: node,
                 };
-            } else try {
-                return {
-                    kind: "node",
-                    key: key,
-                    children: [this.visitSrc(this.getName(node.ctx), (node.src as SrcNode))],
-                    node: node,
-                };
-            } catch {
-                const src = node.src as Record<string, SrcNode | SrcNode[]>;
+            } else { // Record<string, SrcValue | undefined>
+                const src = node.v as Record<string, { src: NodeSrc, value?: any, } | undefined>;
                 const keys = Object.keys(src);
-                let children: (DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal)[] = [];
+                let children: (DebugASTNode | DebugASTTerminal | DebugASTMissing)[] = [];
                 for (let i = 0; i < keys.length; i++) {
                     const key = keys[i];
-                    const n = src[key];
-                    children.push(...(Array.isArray(n) ? n.map(nn => this.visitSrc(key, nn)) : [this.visitSrc(key, n)]));
+                    const n = src[key]?.src;
+                    if (n) {
+                        children.push(...this.visitNodeSrc(key, n));
+                    } else {
+                        children.push({
+                            kind: "missing",
+                            key: key,
+                        });
+                    }
                 }
                 return {
                     kind: "node",
@@ -143,58 +139,98 @@ export class DebugAST {
             }
         } else {
             return {
-                kind: "error-node",
+                kind: "missing",
                 key: this.getName(node.ctx),
-                children: [],
-                node: node,
             };
         }
     };
 
-    visitSrc(key: string, src: SrcNode): DebugASTNode | DebugASTErrorNode | DebugASTTerminal | DebugASTMissingTerminal {
-        if (!src) {
-            return {
-                kind: "missing-terminal",
-                key: key,
-            };
+    visitNodeSrc(key: string, src: NodeSrc): (DebugASTNode | DebugASTTerminal | DebugASTMissing)[] {
+        // TerminalNode | BaseASTNode | UnionNode | UnionTerminal | (...)[] | Record<string, (...)>
+        if (Array.isArray(src)) {  // (...)[]
+            return src.map((s) => this.visitNodeSrc(key, s)).flat(1);
         } else if (src instanceof TerminalNode) {
-            return {
+            return [{
                 kind: "terminal",
                 key: key,
                 src: src.getText(),
                 terminal: src,
-            };
-        } else if (src._kind === "baseastnode") {
-            return this.visitNode(key, src);
+            }];
         } else if (src._kind === "unionterminal") {
-            return {
+            return [{
                 kind: "terminal",
                 key: key,
                 src: src.node.getText(),
                 terminal: src.node,
-            };
+            }];
+        } else if (src._kind === "baseastnode") {
+            return [this.visitNode(key, src)];
         } else if (src._kind === "unionnode") {
-            return this.visitNode(key, src.node);
+            return [this.visitNode(key, src.node)];
         } else {
-            throw new Error(key);
+            const keys = Object.keys(src);
+            let children: (DebugASTNode | DebugASTTerminal | DebugASTMissing)[] = [];
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                const n = src[key];
+                if (n) {
+                    children.push(...this.visitNodeSrc(key, n));
+                } else {
+                    children.push({
+                        kind: "missing",
+                        key: key,
+                    });
+                }
+            }
+            return children;
         }
     };
 
-    visitTerminal(key: string, node: TerminalNode | undefined): DebugASTTerminal | DebugASTMissingTerminal {
-        if (node) {
-            return {
-                kind: "terminal",
-                key: key,
-                src: node.getText(),
-                terminal: node,
-            };
-        } else {
-            return {
-                kind: "missing-terminal",
-                key: key,
-            };
-        }
-    }
+    // visitSrc(key: string, src: SrcNode): DebugASTNode | DebugASTTerminal | DebugASTMissing {
+    //     if (!src) {
+    //         return {
+    //             kind: "missing-terminal",
+    //             key: key,
+    //         };
+    //     } else if (src instanceof TerminalNode) {
+    //         return {
+    //             kind: "terminal",
+    //             key: key,
+    //             src: src.getText(),
+    //             terminal: src,
+    //         };
+    //     } else if (src._kind === "baseastnode") {
+    //         return this.visitNode(key, src);
+    //     } else if (src._kind === "unionterminal") {
+    //         return {
+    //             kind: "terminal",
+    //             key: key,
+    //             src: src.node.getText(),
+    //             terminal: src.node,
+    //         };
+    //     } else if (src._kind === "unionnode") {
+    //         return this.visitNode(key, src.node);
+    //     } else {
+    //         console.log(src);
+    //         throw new Error(key);
+    //     }
+    // };
+
+    // visitTerminal(key: string, node: TerminalNode | undefined): DebugASTTerminal | DebugASTMissing {
+    //     if (node) {
+    //         return {
+    //             kind: "terminal",
+    //             key: key,
+    //             src: node.getText(),
+    //             terminal: node,
+    //         };
+    //     } else {
+    //         return {
+    //             kind: "missing-terminal",
+    //             key: key,
+    //         };
+    //     }
+    // }
 
     getName(ctx: ParserRuleContext) {
         if (!ctx) return '';

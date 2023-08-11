@@ -1,57 +1,42 @@
 import { TerminalNode } from "antlr4";
-import { BaseASTNode, UnionTerminal, UnionNode } from "./base";
-import { Xref_entryContext, Xref_sectionContext, Xref_subsectionContext, Xref_subsection_headerContext, Xref_typeContext } from "../../antlr/dist/PDFParser";
+import { BaseASTNode, UnionTerminal, UnionNode, TermErrorType } from "./base";
+import { XrefEntryContext, XrefSectionContext, XrefSubsectionContext, XrefSubsectionHeaderContext, XrefTypeContext } from "../../antlr/dist/PDFParser";
 import { IntegerNode } from "./number";
 
 export interface XRefSectionNode extends BaseASTNode {
-    ctx: Xref_sectionContext;
-    src: {
-        k_xref?: TerminalNode,
-        subsections: XRefSubsectionNode[],
+    ctx: XrefSectionContext;
+    v: {
+        kXref?: { src: TerminalNode, value: TermErrorType, },
+        subsections: { src: XRefSubsectionNode[], },
     };
-    value: XRefSubsectionNode['value'][];
 }
 
 export interface XRefSubsectionNode extends BaseASTNode {
-    ctx: Xref_subsectionContext;
-    src: {
-        header?: XRefSubsectionHeaderNode,
-        entries: XRefEntryNode[],
-    };
-    value: {
-        header?: XRefSubsectionHeaderNode['value'],
-        entries: XRefEntryNode['value'][],
+    ctx: XrefSubsectionContext;
+    v: {
+        header?: { src: XRefSubsectionHeaderNode, },
+        entries: { src: XRefEntryNode[], },
     };
 }
 
 export interface XRefSubsectionHeaderNode extends BaseASTNode {
-    ctx: Xref_subsection_headerContext;
-    src: {
-        start?: IntegerNode,
-        len?: IntegerNode,
-    };
-    value: {
-        start?: number,
-        len?: number,
+    ctx: XrefSubsectionHeaderContext;
+    v: {
+        start?: { src: IntegerNode, },
+        len?: { src: IntegerNode, },
     };
 }
 
 export interface XRefEntryNode extends BaseASTNode {
-    ctx: Xref_entryContext;
-    src: {
-        n?: IntegerNode,
-        g?: IntegerNode,
-        type?: XRefTypeNode,
-    };
-    value: {
-        n?: number,
-        g?: number,
-        type?: XRefTypeNode['value'],
+    ctx: XrefEntryContext;
+    v: {
+        n: { src: IntegerNode, },
+        g: { src: IntegerNode, },
+        type: { src: XRefTypeNode, },
     };
 }
 
 export interface XRefTypeNode extends BaseASTNode {
-    ctx: Xref_typeContext;
-    src?: TerminalNode;
-    value?: "n" | "f";
+    ctx: XrefTypeContext;
+    v: { src: TerminalNode, value: "n" | "f", };
 }

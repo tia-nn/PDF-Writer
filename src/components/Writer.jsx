@@ -145,15 +145,15 @@ function Writer({ value, options, onChange }) {
         }
     }, [editor, options.completeClosingQuote]);
 
-    useEffect(() => {
-        if (monaco && model && lastParsed.current.ast) {
-            const errors = detectErrorStart(lastParsed.current.ast);
-            const markers = createErrorMarker(errors, model);
-            console.log(errors);
-            // const markers = createErrorMarker(lastParsed.current.errors || [], model);
-            monaco.editor.setModelMarkers(model, 'writer', markers);
-        }
-    }, [value]);
+    // useEffect(() => {
+    //     if (monaco && model && lastParsed.current.ast) {
+    //         const errors = detectErrorStart(lastParsed.current.ast);
+    //         const markers = createErrorMarker(errors, model);
+    //         console.log(errors);
+    //         // const markers = createErrorMarker(lastParsed.current.errors || [], model);
+    //         monaco.editor.setModelMarkers(model, 'writer', markers);
+    //     }
+    // }, [value]);
 
 
     return (<main className="writer-main">

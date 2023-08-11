@@ -6,6 +6,5 @@ import { IndirectDefineNode } from "./indirect";
 
 export interface BodyNode extends BaseASTNode {
     ctx: BodyContext;
-    src: IndirectDefineNode[],
-    value: IndirectDefineNode['value'][];
+    v: { src: IndirectDefineNode[], },
 }

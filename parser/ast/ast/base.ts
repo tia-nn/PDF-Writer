@@ -2,16 +2,21 @@ import { ParseTree, ParserRuleContext, RecognitionException, TerminalNode } from
 import { Position } from "./position";
 
 export type SrcNode = TerminalNode | BaseASTNode | UnionNode | UnionTerminal;
-export type NodeSrc = SrcNode | SrcNode[] | Record<string, SrcNode | SrcNode[]>;
+export type SrcNodeArr = SrcNode | SrcNode[];
+export type NodeSrc = SrcNodeArr | Record<string, SrcNodeArr | Record<string, SrcNodeArr>>;
+
+type SrcValue = { src: NodeSrc, value?: any, };
+
+export type TermErrorType = "valid" | "missing";
 
 export interface BaseASTNode {
     _kind: "baseastnode";
     ctx: ParserRuleContext;
-    src?: NodeSrc;
-    value?: any | Record<string, any>;
     position: Position;
     exception?: RecognitionException;
     errors?: ErrorReport[];
+
+    v?: SrcValue | Record<string, SrcValue | undefined>;
 }
 
 export interface UnionNode {
