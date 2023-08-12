@@ -1,46 +1,41 @@
-import { ParseTreeWalker, TerminalNode } from "antlr4";
 import './ParserDebug.css';
-import { DebugAST, DebugListener } from "../../../parser/ast/parser-debug-listner";
-import * as parser from "../writer/language/Parser";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import buildNodeWorker from "./ParserDebug.worker?worker";
+import { parse } from "flatted";
 
 /**
- *
  * @param {Object} props
  * @param {string} props.text
  * @returns {React.JSX.Element}
  */
 function ParserDebug({ text }) {
-    const tree = parser.tree(text);
+    /** @type {import("react").MutableRefObject<Worker | null>} */
+    const workerRef = useRef(null);
+    const [[contextTreeEl, astTreeEl], setTreeEl] = useState([<></>, <></>]);
 
-    const ast = (() => {
-        try {
-            return parser.parseTree(text, tree);
-        } catch (e) {
-            console.error(e);
-            return null;
+    useEffect(() => {
+        workerRef.current = new buildNodeWorker();
+        workerRef.current.onmessage = e => {
+            const [contextDebugNodeStr, astDebugNodeStr] = e.data;
+            const contextDebugNode = parse(contextDebugNodeStr);
+            const astDebugNode = parse(astDebugNodeStr);
+            setTreeEl([<ul>{buildTree(contextDebugNode)}</ul>, <ul>{buildAst(astDebugNode)}</ul>]);
+        };
+        return () => workerRef.current.terminate();
+    }, []);
+
+    useEffect(() => {
+        if (workerRef.current) {
+            workerRef.current.postMessage(text);
         }
-    })();
-
-    const walker = new DebugListener();
-    ParseTreeWalker.DEFAULT.walk(walker, parser.tree(text));
-    const treeTree = walker.currentNode ? <ul>{buildTree(walker.currentNode)}</ul> : "Error.";
-
-    const astTree = (() => {
-        try {
-            return ast ? <ul>{buildAst(new DebugAST().visitNode('start', ast))}</ul> : "Error.";
-        } catch (e) {
-            console.error(e);
-            return null;
-        }
-    })();
+    }, [text]);
 
     return (
         <section className="viewer-debug">
             <div className="viewer-debug-inner">
-                {astTree}
+                {astTreeEl}
                 <hr></hr>
-                {treeTree}
+                {contextTreeEl}
             </div>
         </section>
     );
@@ -65,7 +60,7 @@ function buildAst(node) {
 }
 
 /**
- * @param {import("../../../parser/ast/parser-debug-listner").DebugListenerNode | import("../../../parser/ast/parser-debug-listner").DebugListenerTerminal} node
+ * @param {import("../../../parser/ast/DebugNodeBuilder").DebugListenerNode | import("../../../parser/ast/DebugNodeBuilder").DebugListenerTerminal} node
  * @return {React.JSX.Element}
  */
 function buildTree(node) {

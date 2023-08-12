@@ -18,14 +18,16 @@ import { BodyNode } from "./ast/doby";
 import { StartNode } from "./ast/start";
 import { isErrorNode, isMissingNode } from "./TerminalNodeWithErrorCheck";
 
-export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
+export class ASTBuilder extends PDFParserVisitor<BaseASTNode> {
     errors: ErrorReport[];
     srcCode: string;
+    withoutCtx: boolean;
 
-    constructor(srcCode: string) {
+    constructor(srcCode: string, withoutCtx?: boolean) {
         super();
         this.errors = [];
         this.srcCode = srcCode;
+        this.withoutCtx = !!withoutCtx;
     }
 
     visitStart: ((ctx: StartContext) => BaseASTNode) = ctx => {
@@ -40,7 +42,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 header: header ? { src: header, value: isMissingNode(header) ? "missing" : "valid" } : undefined,
@@ -55,7 +57,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const d = ctx.indirectObjectDefine_list().map(n => n.accept(this) as any as IndirectDefineNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 src: d,
@@ -76,7 +78,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 objNum: objNum ? { src: objNum } : undefined,
@@ -173,7 +175,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: v,
         };
@@ -197,7 +199,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         } as NumberKindReal;
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 src: src,
@@ -212,7 +214,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: src ? {
                 src: src,
@@ -230,7 +232,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 src: src,
@@ -249,7 +251,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const contents = ctx.nameContent_list().map(n => n.accept(this) as any as NameContentNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 prefix: { src: prefix, },
@@ -295,7 +297,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         }
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: v,
         };
@@ -325,7 +327,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         };
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             v: v,
             position: calcPosition(ctx),
         };
@@ -338,7 +340,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const contents = ctx.literalStringContent_list().map(n => n.accept(this) as any as LStrContentNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 LStrQuoteOpen: { src: ctx.LSTR_QUOTE_OPEN() },
@@ -396,7 +398,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         }
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: v,
         };
@@ -409,7 +411,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const contents = ctx.literalStringContent_list().map(n => n.accept(this) as any as LStrContentNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 LStrQuoteOpen: { src: ctx.LSTR_QUOTE_OPEN_INNER() },
@@ -476,7 +478,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         }
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: v,
         };
@@ -489,7 +491,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const contents = ctx.hexStringContent_list().map(n => n.accept(this) as any as HStrContentNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 HStrQuoteOpen: { src: ctx.HSTR_QUOTE_OPEN() },
@@ -526,7 +528,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         }
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: src,
         };
@@ -540,7 +542,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const null_ = ctx.K_NULL();
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: null_ ? { src: null_, value: null } : undefined,
         };
@@ -555,7 +557,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const contents = ctx.object_list().map(n => n.accept(this) as any as ObjectNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 arrayOpen: { src: ctx.ARRAY_OPEN(), },
@@ -579,7 +581,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         }
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 dictOpen: { src: ctx.DICT_OPEN(), },
@@ -600,7 +602,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 name: name ? { src: name, value: name.v.contents.value } : undefined,
@@ -620,7 +622,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 dict: dict ? { src: dict, } : undefined,
@@ -656,7 +658,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 kStream: { src: ctx.K_STREAM() },
@@ -678,7 +680,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 objNum: objNum ? { src: objNum, } : undefined,
@@ -697,7 +699,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const entries = ctx.xrefSubsection_list().map(n => n.accept(this) as any as XRefSubsectionNode);
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 kXref: kXref ? { src: kXref, value: isErrorNode(kXref) ? "missing" : "valid", } : undefined,
@@ -716,7 +718,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 header: header ? { src: header } : undefined,
@@ -732,11 +734,9 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         if (!start) this.error(ctx, "missing object number of first object in xref subsection header.");
         if (!len) this.error(ctx, "missing number of entries in xref subsection header.");
 
-        console.log((start?.ctx.start as any).source);
-
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 start: start ? { src: start } : undefined,
@@ -765,7 +765,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 n: { src: n },
@@ -779,7 +779,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
         const ty = (ctx.XREF_TYPE_N() || ctx.XREF_TYPE_F()) as TerminalNode;
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: { src: ty, value: ty.getText() as "n" | "f" },
         };
@@ -799,7 +799,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
 
         return {
             _kind: "baseastnode",
-            ctx: ctx,
+            ctx: this.withoutCtx ? undefined as any : ctx,
             position: calcPosition(ctx),
             v: {
                 kTrailer: kTrailer ? { src: kTrailer, value: isErrorNode(kTrailer) ? "missing" : "valid", } : undefined,
@@ -816,7 +816,7 @@ export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
     // errorNode<RET extends BaseASTNode>(ctx: RET["ctx"], defaultValue: RET['value']): RET {
     //     return {
     //         _kind: "baseastnode",
-    //         ctx: ctx,
+    //         ctx: this.withoutCtx ? undefined as any : ctx,
     //         position: calcPosition(ctx),
     //         value: defaultValue,
     //         exception: ctx.exception,

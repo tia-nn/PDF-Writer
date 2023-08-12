@@ -5,9 +5,12 @@ import Header from './components/Header';
 import Writer from './components/Writer';
 import Viewer from './components/Viewer';
 import { Col, Container, Row } from 'react-bootstrap';
+import HelloWorld from './samples/HelloWorld.pdf?raw';
+import ImageXObject from './samples/ImageXObject.pdf?raw';
+import ImageXObjectJpeg from './samples/ImageXObjectJpeg.pdf?raw';
 
 function App() {
-    const [value, setValue] = useState(toAsciiString(defaultValue));
+    const [value, setValue] = useState(toAsciiString(HelloWorld));
 
     const handleChange = useCallback((newValue) => {
         setValue(toAsciiString(newValue));
@@ -24,12 +27,12 @@ function App() {
                             onChange={handleChange}
                             options={{
                                 autofillXrefTable: false,
-                                completeClosingQuote: false,
+                                completeClosingQuote: true,
                             }}
                         ></Writer></Col>
                         <Col className='viewer-col'><Viewer
                             value={value}
-                            type="iframe"
+                            type="tree"
                         ></Viewer></Col>
                     </Row>
                 </Container>
@@ -55,69 +58,5 @@ function stringToAsciiUint8Array(inputString) {
     }
     return uint8array.subarray(0, ii);
 }
-
-const defaultValue = `%PDF-1.0
-1 0 obj
-<<
-    /Kids [2 0 R]
-    /Type /Pages
-    /Count 1
->>
-endobj
-2 0 obj
-<<
-    /Resources 3 0 R
-    /Type /Page
-    /Contents [4 0 R]
-    /Parent 1 0 R
-    /MediaBox [0 0 612 792]
->>
-endobj
-3 0 obj
-<<
-    /Font <<
-        /F0 <<
-            /Subtype /Type1
-            /Type /Font
-            /BaseFont /Times-Italic
-        >>
-    >>
->>
-endobj
-4 0 obj
-<<
-    /Length 67
->>
-stream
-1. 0. 0. 1. 50. 700. cm
-BT
-    /F0 36. Tf
-    (Hello, World!) Tj
-ET
-endstream
-endobj
-5 0 obj
-<<
-    /Type /Catalog
-    /Pages 1 0 R
->>
-endobj
-xref
-0 6
-0000000000 65535 f\x20
-0000000009 00000 n\x20
-0000000078 00000 n\x20
-0000000204 00000 n\x20
-0000000359 00000 n\x20
-0000000480 00000 n\x20
-trailer
-<<
-    /Root 5 0 R
-    /Size 6
->>
-startxref
-573
-%%EOF
-`;
 
 export default App;

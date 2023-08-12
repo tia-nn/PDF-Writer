@@ -30,7 +30,7 @@ interface ParserRuleContextWithRuleIndex extends ParserRuleContext {
     get ruleIndex(): number;
 }
 
-export class DebugListener extends PDFParserListener {
+export class ContextDebugNodeBuildListener extends PDFParserListener {
     currentNode?: DebugListenerNode;
     lastNodeStack: DebugListenerNode[];
 
@@ -101,7 +101,11 @@ export type DebugASTMissing = {
     key: string,
 };
 
-export class DebugAST {
+export class ASTDebugNodeBuilder {
+    build(node: StartNode) {
+        return this.visitNode('start', node);
+    }
+
     visitNode(key: string, node: BaseASTNode): DebugASTNode | DebugASTTerminal | DebugASTMissing {
         const v = node.v; // { src: NodeSrc, value?: any, } | Record<string, { src: NodeSrc, value?: any, } | undefined> | undefined
 
@@ -185,52 +189,6 @@ export class DebugAST {
             return children;
         }
     };
-
-    // visitSrc(key: string, src: SrcNode): DebugASTNode | DebugASTTerminal | DebugASTMissing {
-    //     if (!src) {
-    //         return {
-    //             kind: "missing-terminal",
-    //             key: key,
-    //         };
-    //     } else if (src instanceof TerminalNode) {
-    //         return {
-    //             kind: "terminal",
-    //             key: key,
-    //             src: src.getText(),
-    //             terminal: src,
-    //         };
-    //     } else if (src._kind === "baseastnode") {
-    //         return this.visitNode(key, src);
-    //     } else if (src._kind === "unionterminal") {
-    //         return {
-    //             kind: "terminal",
-    //             key: key,
-    //             src: src.node.getText(),
-    //             terminal: src.node,
-    //         };
-    //     } else if (src._kind === "unionnode") {
-    //         return this.visitNode(key, src.node);
-    //     } else {
-    //         console.log(src);
-    //         throw new Error(key);
-    //     }
-    // };
-
-    // visitTerminal(key: string, node: TerminalNode | undefined): DebugASTTerminal | DebugASTMissing {
-    //     if (node) {
-    //         return {
-    //             kind: "terminal",
-    //             key: key,
-    //             src: node.getText(),
-    //             terminal: node,
-    //         };
-    //     } else {
-    //         return {
-    //             kind: "missing-terminal",
-    //             key: key,
-    //         };
-    //     }
-    // }
 
     getName(ctx: ParserRuleContext) {
         if (!ctx) return '';

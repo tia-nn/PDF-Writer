@@ -78,7 +78,6 @@ function detectErrorXrefSubsectionHeader(header: XRefSubsectionHeaderNode, entri
         const startValue = header.v.start!.src.v!.value;
         const lenValue = header.v.len!.src.v!.value;
         if (index === 0) {
-            console.log(header.v.start);
             if (startValue !== 0) errors.push({
                 position: header.position,
                 message: "first xref subsection must have a entry which object number is 0.",
