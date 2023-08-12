@@ -72,20 +72,21 @@ function Writer({ value, options, onChange }) {
                 return;
             }
 
-            try {
-                const [tree, ast, errs] = parser.parse(newValue);
-                lastParsed.current = { tree, ast, src: newValue, errors: errs };  // parse() をキャッシュ
+            // TODO: 非同期でやる (parse() が重いので)
+            // try {
+            //     const [tree, ast, errs] = parser.parse(newValue);
+            //     lastParsed.current = { tree, ast, src: newValue, errors: errs };  // parse() をキャッシュ
 
-                const xref = autoFill.buildXrefTable(tree, ast);
-                const xrefEditOp = buildEditOperation(editor, xref.start, xref.end, xref.text);
+            //     const xref = autoFill.buildXrefTable(tree, ast);
+            //     const xrefEditOp = buildEditOperation(editor, xref.start, xref.end, xref.text);
 
-                preventChangeEvent.current = true;
-                editor.executeEdits(null, [xrefEditOp]);
-                preventChangeEvent.current = false;
-            } catch {  // PDF的にエラーのときはテキストだけ更新する。
-                if (onChange) onChange(newValue);
-                return;
-            }
+            //     preventChangeEvent.current = true;
+            //     editor.executeEdits(null, [xrefEditOp]);
+            //     preventChangeEvent.current = false;
+            // } catch {  // PDF的にエラーのときはテキストだけ更新する。
+            if (onChange) onChange(newValue);
+            return;
+            // }
 
             if (onChange) onChange(editor.getValue());
         } else {
@@ -95,17 +96,30 @@ function Writer({ value, options, onChange }) {
     }, [monaco, editor]);
 
 
+    // - - - error detect - - -
+
+    const detectErrorCallback = useCallback((ast) => {
+        if (monaco && model) {
+            const errors = detectErrorStart(ast);
+            const markers = createErrorMarker(errors, model);
+            console.log(errors);
+            // const markers = createErrorMarker(lastParsed.current.errors || [], model);
+            monaco.editor.setModelMarkers(model, 'writer', markers);
+        }
+    }, [monaco, model]);
+
     // - - - effect - - -
 
     // parse() のキャッシュがヒットしなかったら parse() する
     useEffect(() => {
+        // TODO: throttle
         if (value != lastParsed.current.src) {
-            try {
-                const [tree, ast, errs] = parser.parse(value);
+            parser.parsePromise(value).then(([tree, ast, errs]) => {
                 lastParsed.current = { tree, ast, src: value, errors: errs };
-            } catch (e) {
+                detectErrorCallback(ast);
+            }).catch(e => {
                 // console.error(e);
-            }
+            });
         }
     }, [value]);
 
@@ -145,15 +159,6 @@ function Writer({ value, options, onChange }) {
         }
     }, [editor, options.completeClosingQuote]);
 
-    // useEffect(() => {
-    //     if (monaco && model && lastParsed.current.ast) {
-    //         const errors = detectErrorStart(lastParsed.current.ast);
-    //         const markers = createErrorMarker(errors, model);
-    //         console.log(errors);
-    //         // const markers = createErrorMarker(lastParsed.current.errors || [], model);
-    //         monaco.editor.setModelMarkers(model, 'writer', markers);
-    //     }
-    // }, [value]);
 
 
     return (<main className="writer-main">

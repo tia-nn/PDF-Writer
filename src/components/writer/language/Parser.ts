@@ -5,6 +5,7 @@ import { ASTVisitor } from "../../../../parser/ast/ast-visitor";
 import { StartNode } from "../../../../parser/ast/ast/start";
 import { Scope } from "../../../../parser/ast/ast/scope";
 import { BaseASTNode, ErrorReport } from "../../../../parser/ast/ast/base";
+import { resolve } from "path";
 
 
 export function tree(v: string): StartContext {
@@ -18,8 +19,14 @@ export function tree(v: string): StartContext {
     return tree;
 }
 
-export function parseTree(t: StartContext): StartNode {
-    const ast = new ASTVisitor().visit(t);
+export function treePromise(v: string): Promise<StartContext> {
+    return new Promise(function (resolve) {
+        setTimeout(() => resolve(tree(v)), 0);
+    });
+}
+
+export function parseTree(src: string, t: StartContext): StartNode {
+    const ast = new ASTVisitor(src).visit(t);
 
     return ast as StartNode;
 }
@@ -27,10 +34,16 @@ export function parseTree(t: StartContext): StartNode {
 export function parse(v: string): [StartContext, StartNode, ErrorReport[]] {
     const t = tree(v);
 
-    const parser = new ASTVisitor();
+    const parser = new ASTVisitor(v);
     const ast = parser.visit(t);
 
     return [t, ast as StartNode, parser.errors];
+}
+
+export function parsePromise(v: string): Promise<[StartContext, StartNode, ErrorReport[]]> {
+    return new Promise(function (resolve) {
+        setTimeout(() => resolve(parse(v)), 0);
+    });
 }
 
 // export function scope(node: StartNode, pos: number): Scope {

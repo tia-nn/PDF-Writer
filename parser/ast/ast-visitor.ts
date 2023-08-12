@@ -20,10 +20,12 @@ import { isErrorNode, isMissingNode } from "./TerminalNodeWithErrorCheck";
 
 export class ASTVisitor extends PDFParserVisitor<BaseASTNode> {
     errors: ErrorReport[];
+    srcCode: string;
 
-    constructor() {
+    constructor(srcCode: string) {
         super();
         this.errors = [];
+        this.srcCode = srcCode;
     }
 
     visitStart: ((ctx: StartContext) => BaseASTNode) = ctx => {

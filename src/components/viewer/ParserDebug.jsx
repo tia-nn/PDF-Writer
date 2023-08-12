@@ -15,7 +15,7 @@ function ParserDebug({ text }) {
 
     const ast = (() => {
         try {
-            return parser.parseTree(tree);
+            return parser.parseTree(text, tree);
         } catch (e) {
             console.error(e);
             return null;

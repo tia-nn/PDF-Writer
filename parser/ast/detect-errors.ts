@@ -3,27 +3,28 @@ import { StartNode } from "../../src/components/Writer";
 import { isMissingNode } from "./TerminalNodeWithErrorCheck";
 import { BaseASTNode, ErrorReport } from "./ast/base";
 import { Position } from "./ast/position";
-import { XRefSectionNode, XRefSubsectionHeaderNode, XRefSubsectionNode } from "./ast/xref";
+import { XRefEntryNode, XRefSectionNode, XRefSubsectionHeaderNode, XRefSubsectionNode } from "./ast/xref";
 import { TrailerNode } from "./ast/trailer";
 
 export function detectErrorStart(node: StartNode): ErrorReport[] {
     const errors: ErrorReport[] = [];
 
-    if (!node.src.header || isMissingNode(node.src.header)) {
+
+    if (!node.v.header || node.v.header.value === "missing") {
         errors.push({ position: { line: 1, column: 0, start: 0, stop: 0, length: 0 }, message: "missing PDF Header." });
     }
-    if (!node.src.body) errors.push({
-        position: calcPositionBetweenTermNode(node.src.header, node.src.xref) || calcPositionBetweenTermNode(node.src.header, node.src.trailer) || tokenToPosition(node.ctx.start),
+    if (!node.v.body) errors.push({
+        position: calcPositionBetween(node.v.header?.src, node.v.xref?.src || node.v.trailer?.src) || tokenToPosition(node.ctx.start),
         message: "missing PDF Body."
     });
-    if (!node.src.xref) errors.push({
-        position: calcPositionBetweenNode(node.src.body, node.src.trailer) || calcPositionBetweenTermNode(node.src.header, node.src.trailer) || tokenToPosition(node.ctx.start),
+    if (!node.v.xref) errors.push({
+        position: calcPositionBetween(node.v.body?.src || node.v.header?.src, node.v.trailer?.src) || tokenToPosition(node.ctx.start),
         message: "missing Xref Table."
-    }); else errors.push(...detectErrorXRef(node.src.xref));
-    if (!node.src.trailer) errors.push({
-        position: calcPositionNodeTail(node.src.xref) || calcPositionNodeTail(node.src.body) || tokenToPosition(node.ctx.start),
+    }); else errors.push(...detectErrorXRef(node.v.xref.src));
+    if (!node.v.trailer) errors.push({
+        position: calcPositionTail(node.v.xref?.src || node.v.body?.src || node.v.header?.src) || tokenToPosition(node.ctx.start),
         message: "missing PDF Trailer."
-    }); else errors.push(...detectErrorTrailer(node.src.trailer));
+    }); else errors.push(...detectErrorTrailer(node.v.trailer.src));
 
     return errors;
 }
@@ -31,14 +32,14 @@ export function detectErrorStart(node: StartNode): ErrorReport[] {
 function detectErrorXRef(node: XRefSectionNode): ErrorReport[] {
     const errors: ErrorReport[] = [];
 
-    if (!node.src.k_xref || isMissingNode(node.src.k_xref)) errors.push({
-        position: calcPositionTerm(node.src.k_xref) || calcPositionNodeHead(node) || node.position,
+    if (!node.v.kXref || node.v.kXref.value === "missing") errors.push({
+        position: calcPositionNodeHead(node) || node.position,
         message: "missing xref keyword.",
     });
-    if (node.src.subsections.length < 1) errors.push({
+    if (node.v.subsections.src.length < 1) errors.push({
         position: node.position,
         message: "xref table must have 1 or more subsections",
-    }); else errors.push(...node.src.subsections.map(detectErrorXrefSubsection).flat(1));
+    }); else errors.push(...node.v.subsections.src.map(detectErrorXrefSubsection).flat(1));
 
     return errors;
 }
@@ -46,50 +47,79 @@ function detectErrorXRef(node: XRefSectionNode): ErrorReport[] {
 function detectErrorXrefSubsection(node: XRefSubsectionNode, index: number): ErrorReport[] {
     const errors: ErrorReport[] = [];
 
-    if (!node.src.header) errors.push({
+    if (!node.v.header) errors.push({
         position: node.position,
         message: "missing xref subsection header.",
     });
-    else {
-        errors.push(...detectErrorXrefSubsectionHeader(node.src.header));
+    else
+        errors.push(...detectErrorXrefSubsectionHeader(node.v.header.src, node.v.entries.src, index));
 
-        if (node.src.header.value.start != undefined && node.src.header.value.len != undefined) {
-            if (node.src.header.value.len !== node.value.entries.length) errors.push({
-                position: node.src.header.src.len!.position,
-                message: "mismatch number of xref subsection entries",
+    errors.push(...node.v.entries.src.map(detectErrorXrefEntry).flat(1));
+
+    return errors;
+}
+
+function detectErrorXrefSubsectionHeader(header: XRefSubsectionHeaderNode, entries: XRefEntryNode[], index: number) {
+    const errors: ErrorReport[] = [];
+
+    const isMissingStart = !header.v.start || !header.v.start.src.v || header.v.start.src.v.eType == "missing";
+    const isMissingLen = !header.v.len || !header.v.len.src.v || header.v.len.src.v.eType == "missing";
+
+    if (isMissingStart) errors.push({
+        position: header.position,
+        message: "missing object number of first object.",
+    });
+    if (isMissingLen) errors.push({
+        position: header.position,
+        message: "missing number of xref subsection entries.",
+    });
+
+    if (!isMissingStart && !isMissingLen) {
+        const startValue = header.v.start!.src.v!.value;
+        const lenValue = header.v.len!.src.v!.value;
+        if (index === 0) {
+            console.log(header.v.start);
+            if (startValue !== 0) errors.push({
+                position: header.position,
+                message: "first xref subsection must have a entry which object number is 0.",
             });
-            if (node.value.entries.length !== 0 && node.src.header.value.start !== (node.value.entries[0]).n) errors.push({
-                position: node.src.header.src.start!.position,
+        }
+
+        if (lenValue !== entries.length) errors.push({
+            position: header.v.len!.src.position,
+            message: "mismatch number of xref subsection entries",
+        });
+        if (entries.length !== 0) {
+            if (startValue !== (entries[0]).v.n.src.v?.value) errors.push({
+                position: header.v.start!.src.position,
                 message: "mismatch object number of first object",
             });
-            if (index === 0) {
-                console.log(node.src.header.value.start);
-                if (node.src.header.value.start !== 0) errors.push({
-                    position: node.src.header.position,
-                    message: "first xref subsection must have object which object number is 0.",
-                });
-            }
-        }
+            if (index === 0 && entries[0].v.n.src.v?.value === 0 && entries[0].v.g.src.v?.value !== 65535) errors.push({
+                position: entries[0].v.g.src.position,
+                message: "generation number in the entry which object number is 0 must be 65535",
+            });
+        };
+
+        // TODO: 固定フォーマット検証
+        // TODO: 実際の定義との差異検証
     }
 
     return errors;
 }
 
-function detectErrorXrefSubsectionHeader(node: XRefSubsectionHeaderNode) {
+function detectErrorXrefEntry(node: XRefEntryNode) {
     const errors: ErrorReport[] = [];
 
-    if (node.src.start == undefined) errors.push({
-        position: node.position,
-        message: "missing object number of first object.",
+    if (!node.v.n.src.is10Digits) errors.push({
+        position: node.v.n.src.position,
+        message: "object number must be 10-digits"
     });
-    if (node.src.len == undefined) errors.push({
-        position: node.position,
-        message: "missing number of xref subsection entries.",
+    if (!node.v.g.src.is5Digits) errors.push({
+        position: node.v.g.src.position,
+        message: "generation number must be 5-digits"
     });
 
-    if (node.src.start != undefined && node.src.len != undefined) {
-        // TODO: 固定フォーマット検証
-    }
+    // TODO: 固定フォーマット検証
 
     return errors;
 }
@@ -97,23 +127,23 @@ function detectErrorXrefSubsectionHeader(node: XRefSubsectionHeaderNode) {
 function detectErrorTrailer(node: TrailerNode) {
     const errors: ErrorReport[] = [];
 
-    if (!node.src.k_trailer) errors.push({
+    if (!node.v.kTrailer) errors.push({
         position: calcPositionNodeHead(node) || node.position,
         message: "missing trailer keyword.",
     });
-    if (!node.src.dict) errors.push({
-        position: calcPositionBetweenTerm(node.src.k_trailer, node.src.k_startxref) || node.position,
+    if (!node.v.dict) errors.push({
+        position: calcPositionBetween(node.v.kTrailer?.src, node.v.kStartxref?.src || node.v.xrefOffset?.src || node.v.eofMarker?.src) || node.position,
         message: "missing trailer dictionary",
     });
-    if (!node.src.k_startxref) errors.push({
-        position: calcPositionBetweenNode(node.src.dict, node.src.xrefOffset) || node.position,
+    if (!node.v.kStartxref) errors.push({
+        position: calcPositionBetween(node.v.dict?.src || node.v.kTrailer?.src, node.v.xrefOffset?.src || node.v.eofMarker?.src) || node.position,
         message: "missing startxref keyword.",
     });
-    if (!node.src.xrefOffset) errors.push({
-        position: calcPositionBetweenTerm(node.src.k_startxref, node.src.eofMarker) || node.position,
+    if (!node.v.xrefOffset) errors.push({
+        position: calcPositionBetween(node.v.kStartxref?.src || node.v.dict?.src || node.v.kTrailer?.src, node.v.eofMarker?.src) || node.position,
         message: "missing number of xref offset.",
     });
-    if (!node.src.eofMarker) errors.push({
+    if (!node.v.eofMarker) errors.push({
         position: calcPositionNodeTail(node) || node.position,
         message: "missing EOF marker.",
     });
@@ -121,44 +151,21 @@ function detectErrorTrailer(node: TrailerNode) {
     return errors;
 }
 
-function calcPositionBetweenNode(node1?: BaseASTNode, node2?: BaseASTNode): Position | undefined {
-    if (!node1 || !node2) return undefined;
+function calcPositionBetween(node1: BaseASTNode | TerminalNode | undefined, node2: BaseASTNode | TerminalNode | undefined): Position | undefined {
+    const pos1 = node1 instanceof TerminalNode ? calcPositionTerm(node1) : node1?.position;
+    const pos2 = node2 instanceof TerminalNode ? calcPositionTerm(node2) : node2?.position;
 
-    return {
-        start: node1.position.stop,
-        stop: node2.position.start,
-        length: node2.position.start - node1.position.stop,
-    };
+    if (pos1 && pos2) {
+        return {
+            start: pos1.stop,
+            stop: pos2.start,
+            length: pos2.start - pos1.stop,
+        };
+    } else return undefined;
 }
 
-function calcPositionBetweenTermNode(term?: TerminalNode, node?: BaseASTNode): Position | undefined {
-    if (!term || !node) return undefined;
-
-    return {
-        start: term.symbol.stop,
-        stop: node.position.start,
-        length: node.position.start - term.symbol.stop,
-    };
-}
-
-function calcPositionBetweenNodeTerm(node?: BaseASTNode, term?: TerminalNode): Position | undefined {
-    if (!node || !term) return undefined;
-
-    return {
-        start: node.position.stop + 1,
-        stop: term.symbol.start,
-        length: term.symbol.start - node.position.stop + 1
-    };
-}
-
-function calcPositionBetweenTerm(term1?: TerminalNode, term2?: TerminalNode): Position | undefined {
-    if (!term1 || !term2) return undefined;
-
-    return {
-        start: term1.symbol.stop + 1,
-        stop: term2.symbol.start,
-        length: term2.symbol.start - term1.symbol.stop + 1
-    };
+function calcPositionTail(node: BaseASTNode | TerminalNode | undefined): Position | undefined {
+    return node instanceof TerminalNode ? calcPositionTermTail(node) : calcPositionNodeTail(node);
 }
 
 function calcPositionNodeHead(node?: BaseASTNode): Position | undefined {
@@ -205,8 +212,4 @@ function tokenToPosition(token: Token): Position {
         stop: token.stop + 1,
         length: token.stop - token.start + 1
     };
-}
-
-function cropString(src: string, start: number, end: number) {
-    return src.substring(start, end);
 }

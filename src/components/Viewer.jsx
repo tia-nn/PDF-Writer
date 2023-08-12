@@ -11,6 +11,7 @@ import ParserDebug from './viewer/ParserDebug';
  * @returns {JSX.Element}
  */
 function Viewer({ value, type }) {
+    // TODO: throttle
 
     let viewer;
     if (type == "tree") {

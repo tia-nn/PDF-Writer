@@ -25,6 +25,7 @@ export interface XRefSubsectionHeaderNode extends BaseASTNode {
         start?: { src: IntegerNode, },
         len?: { src: IntegerNode, },
     };
+    splittedBy?: [string, string];  // [start と len の間 , 次のエントリまでの間]
 }
 
 export interface XRefEntryNode extends BaseASTNode {
@@ -34,6 +35,7 @@ export interface XRefEntryNode extends BaseASTNode {
         g: { src: IntegerNode, },
         type: { src: XRefTypeNode, },
     };
+    splittedBy?: [string, string, string];  // [n と g の間 , g と type の間 , 次のエントリまでの間]
 }
 
 export interface XRefTypeNode extends BaseASTNode {
