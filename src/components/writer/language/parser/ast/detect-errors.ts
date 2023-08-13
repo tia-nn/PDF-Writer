@@ -1,10 +1,9 @@
-import { ParserRuleContext, TerminalNode, Token } from "antlr4";
-import { StartNode } from "../../src/components/Writer";
-import { isMissingNode } from "./TerminalNodeWithErrorCheck";
+import { TerminalNode, Token } from "antlr4";
 import { BaseASTNode, ErrorReport } from "./ast/base";
 import { Position } from "./ast/position";
 import { XRefEntryNode, XRefSectionNode, XRefSubsectionHeaderNode, XRefSubsectionNode } from "./ast/xref";
 import { TrailerNode } from "./ast/trailer";
+import { StartNode } from "./ast/start";
 
 export function detectErrorStart(node: StartNode): ErrorReport[] {
     const errors: ErrorReport[] = [];

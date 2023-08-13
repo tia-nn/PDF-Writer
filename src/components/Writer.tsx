@@ -6,11 +6,12 @@ import * as _monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 import * as PDFLanguage from './writer/language/PDFLanguage';
 import { createErrorMarker } from "./writer/monaco/Marker";
-import { detectErrorStart } from "../../parser/ast/detect-errors";
+import { detectErrorStart } from "./writer/language/parser/ast/detect-errors";
 import parseWorker from "../worker/parse.worker?worker";
 import { parse } from "flatted";
-import { StartNode } from "../../parser/ast/ast/start";
+import { StartNode } from "./writer/language/parser/ast/ast/start";
 import { completeClosingQuote } from "./writer/monaco/CompleteQuote";
+import { ScopeDetector } from "./writer/language/completion/ScopeDetector";
 
 function Writer({ value, options, onChange }: { value: string, options: { completeClosingQuote: boolean, autofillXrefTable: boolean; }, onChange: (v: string) => void; }) {
     const preventChangeEvent = useRef(false);
@@ -32,6 +33,13 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
         // (, <, [ 入力時に閉じquoteも補完する
         (mountedEditor as any).onDidType((text: string) => {
             if (options.completeClosingQuote) completeClosingQuote(mountedEditor, text);
+        });
+
+        mountedEditor.onDidChangeCursorPosition(e => {
+            const model = editorRef.current?.getModel();
+            if (lastParsed.current.ast && model) {
+                new ScopeDetector().detect(lastParsed.current.ast, model.getOffsetAt(e.position));
+            }
         });
     }, []);
 
@@ -61,6 +69,7 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
         parseWorkerRef.current = new parseWorker();
         parseWorkerRef.current.onmessage = (e) => {
             const [source, astStr] = e.data;
+            if (source == undefined) return;
             lastParsed.current = { src: source, ast: parse(astStr) };
             setErrorMarker(lastParsed.current.ast);
         };

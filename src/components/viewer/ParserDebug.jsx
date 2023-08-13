@@ -17,9 +17,7 @@ function ParserDebug({ text }) {
         workerRef.current = new buildNodeWorker();
         workerRef.current.onmessage = e => {
             const [contextDebugNodeStr, astDebugNodeStr] = e.data;
-            const contextDebugNode = parse(contextDebugNodeStr);
-            const astDebugNode = parse(astDebugNodeStr);
-            setTreeEl([<ul>{buildTree(contextDebugNode)}</ul>, <ul>{buildAst(astDebugNode)}</ul>]);
+            setTreeEl([contextDebugNodeStr ? <ul>{buildTree(parse(contextDebugNodeStr))}</ul> : <>Error</>, astDebugNodeStr ? <ul>{buildAst(parse(astDebugNodeStr))}</ul> : <>Error</>]);
         };
         return () => workerRef.current.terminate();
     }, []);

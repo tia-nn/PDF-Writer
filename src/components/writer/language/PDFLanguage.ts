@@ -1,57 +1,56 @@
 import { Monaco } from "@monaco-editor/react";
-import { languages, editor, IRange } from "monaco-editor";
+import { languages, editor } from "monaco-editor";
 import MonarchLanguagePDF from "./monarch-language-pdf";
 
 import parseWorker from "../../../worker/parse.worker?worker";
 import { parse } from "flatted";
-import { StreamDetector } from "../../../../parser/ast/StreamDetector";
-import { StreamNode } from "../../../../parser/ast/ast/stream";
-import { StartNode } from "../../../../parser/ast/ast/start";
+import { StreamDetector } from "./parser/ast/StreamDetector";
+import { StreamNode } from "./parser/ast/ast/stream";
+import { StartNode } from "./parser/ast/ast/start";
 import { Ascii85Encode } from "../encoding/Ascii85";
 import { buildEditOperation } from "../monaco/Build";
+import { ScopeDetector } from "./completion/ScopeDetector";
+import { suggestTrailerDict } from "./completion/dict-suggest";
 
 
 export function registerLanguagePDF(monaco: Monaco) {
     monaco.languages.register({ id: 'pdf' });
     monaco.languages.setMonarchTokensProvider('pdf', MonarchLanguagePDF);
-    // monaco.languages.registerCompletionItemProvider('pdf', {
-    //     triggerCharacters: ['/'],
-    //     provideCompletionItems: (model, position, context, token) => {
-    //         console.log('aaa');
-    //         var word = model.getWordUntilPosition(position);
-    //         var wordPrefix = model.getValueInRange({
-    //             startLineNumber: position.lineNumber,
-    //             startColumn: word.startColumn - 1,
-    //             endLineNumber: position.lineNumber,
-    //             endColumn: word.startColumn
-    //         });
-    //         if (wordPrefix === '/') {
 
-    //             var range = {
-    //                 startLineNumber: position.lineNumber,
-    //                 startColumn: word.startColumn - 1,
-    //                 endLineNumber: position.lineNumber,
-    //                 endColumn: word.endColumn,
-    //             };
+    monaco.languages.registerCompletionItemProvider('pdf', {
+        triggerCharacters: ['/'],
+        provideCompletionItems: (model, position, context, token) => {
 
-    //             return {
-    //                 suggestions: [
-    //                     {
-    //                         label: '/Font',
-    //                         kind: monaco.languages.CompletionItemKind.Value,
-    //                         documentation: "the name /Font.",
-    //                         insertText: '/Font',
-    //                         range: range,
-    //                     },
-    //                 ]
-    //             };
-    //         }
-    //         return {
-    //             suggestions: [
-    //             ]
-    //         };
-    //     }
-    // });
+            return new Promise(resolve => {
+                const worker = new parseWorker();
+                worker.onmessage = (e) => {
+                    worker.terminate();
+                    const [source, astStr] = e.data;
+                    if (source == undefined) return resolve({ suggestions: [] });
+                    const ast = parse(astStr) as StartNode;
+
+                    const word = model.getWordUntilPosition(position);
+                    const wordPrefix = model.getValueInRange({
+                        startLineNumber: position.lineNumber,
+                        startColumn: word.startColumn - 1,
+                        endLineNumber: position.lineNumber,
+                        endColumn: word.startColumn
+                    });
+
+                    const p = model.getOffsetAt(position);
+                    const scope = new ScopeDetector().detect(ast, p);
+
+                    if (scope.kind == "dict" && scope.inTrailer) {
+                        resolve({
+                            suggestions: suggestTrailerDict(scope, position, word, wordPrefix),
+                            // suggestions: [],
+                        });
+                    } else resolve({ suggestions: [] });
+                };
+                worker.postMessage(model.getValue());
+            });
+        }
+    });
 
     const inputEl = document.getElementById('file-input') as HTMLInputElement;
 
@@ -96,6 +95,8 @@ export function registerLanguagePDF(monaco: Monaco) {
                 worker.onmessage = (e) => {
                     worker.terminate();
                     const [source, astStr] = e.data;
+                    if (source == undefined) return resolve({ lenses: [], dispose: () => { } });
+
                     const ast = parse(astStr) as StartNode;
                     const streams = new StreamDetector().detect(ast);
                     const lenses: languages.CodeLens[] = [];
