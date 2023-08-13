@@ -11,7 +11,6 @@ import parseWorker from "../worker/parse.worker?worker";
 import { parse } from "flatted";
 import { StartNode } from "./writer/language/parser/ast/ast/start";
 import { completeClosingQuote } from "./writer/monaco/CompleteQuote";
-import { ScopeDetector } from "./writer/language/completion/ScopeDetector";
 
 function Writer({ value, options, onChange }: { value: string, options: { completeClosingQuote: boolean, }, onChange: (v: string) => void; }) {
     const preventChangeEvent = useRef(false);
@@ -33,13 +32,6 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
         // (, <, [ 入力時に閉じquoteも補完する
         (mountedEditor as any).onDidType((text: string) => {
             if (options.completeClosingQuote) completeClosingQuote(mountedEditor, text);
-        });
-
-        mountedEditor.onDidChangeCursorPosition(e => {
-            const model = editorRef.current?.getModel();
-            if (lastParsed.current.ast && model) {
-                new ScopeDetector().detect(lastParsed.current.ast, model.getOffsetAt(e.position));
-            }
         });
     }, []);
 

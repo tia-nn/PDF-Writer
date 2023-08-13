@@ -9,17 +9,35 @@ import HelloWorld from './samples/HelloWorld.pdf?raw';
 import ImageXObject from './samples/ImageXObject.pdf?raw';
 import ImageXObjectJpeg from './samples/ImageXObjectJpeg.pdf?raw';
 
+/**
+ * @typedef {{ writer: { completeClosingQuote: boolean }, viewer: { type: "iframe" | "tree" } }} Options
+ */
+
 function App() {
     const [value, setValue] = useState(toAsciiString(HelloWorld));
+    const [options, setOptions] = useState(/**@type {Options}*/{ writer: { completeClosingQuote: true }, viewer: { type: "iframe" } });
 
     const handleChange = useCallback((newValue) => {
         setValue(toAsciiString(newValue));
     }, []);
 
+    const handleChangeOptions = useCallback((newOptions) => {
+        setOptions(newOptions);
+    });
+
+    const handleSelectTemplate = useCallback((/** @type {"Hello, World!" | "XObject" | "JPEG Image"} */ t) => {
+        if (t === "Hello, World!")
+            setValue(HelloWorld);
+        else if (t === "XObject")
+            setValue(ImageXObject);
+        else if (t === "JPEG Image")
+            setValue(ImageXObjectJpeg);
+    });
+
     return (
         <>
             <div className='app-container'>
-                <Header></Header>
+                <Header value={options} onChange={handleChangeOptions} onSelectTemplate={handleSelectTemplate}></Header>
                 <Container fluid className='main-container'>
                     <Row className='main-row'>
                         <Col className='writer-col'><Writer
@@ -32,7 +50,7 @@ function App() {
                         ></Writer></Col>
                         <Col className='viewer-col'><Viewer
                             value={value}
-                            type="tree"
+                            type={options.viewer.type}
                         ></Viewer></Col>
                     </Row>
                 </Container>
