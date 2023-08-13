@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
-import { editor, Selection } from 'monaco-editor';
+import { editor } from 'monaco-editor';
 import * as _monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 import * as PDFLanguage from './writer/language/PDFLanguage';
@@ -13,7 +13,7 @@ import { StartNode } from "./writer/language/parser/ast/ast/start";
 import { completeClosingQuote } from "./writer/monaco/CompleteQuote";
 import { ScopeDetector } from "./writer/language/completion/ScopeDetector";
 
-function Writer({ value, options, onChange }: { value: string, options: { completeClosingQuote: boolean, autofillXrefTable: boolean; }, onChange: (v: string) => void; }) {
+function Writer({ value, options, onChange }: { value: string, options: { completeClosingQuote: boolean, }, onChange: (v: string) => void; }) {
     const preventChangeEvent = useRef(false);
 
     const monacoRef = useRef(null as typeof _monaco | null);
@@ -45,13 +45,7 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
 
     const handleChange = useCallback((newValue: string | undefined, ev: editor.IModelContentChangedEvent) => {
         if (preventChangeEvent.current) return;
-
-        if (options.autofillXrefTable && editorRef.current) {
-            // TODO auto xref
-            if (onChange && newValue != null) onChange(newValue);
-        } else {
-            if (onChange && newValue != null) onChange(newValue);
-        }
+        if (onChange && newValue != null) onChange(newValue);
     }, [editorRef.current]);
 
     const setErrorMarker = useCallback((ast) => {

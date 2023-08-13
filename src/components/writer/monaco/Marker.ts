@@ -1,5 +1,5 @@
-import { ErrorReport } from "../../../../parser/ast/ast/base";
 import { editor, MarkerSeverity } from 'monaco-editor/esm/vs/editor/editor.api';
+import { ErrorReport } from "../language/parser/ast/ast/base";
 
 function createMarkers() {
 

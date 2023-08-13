@@ -1,23 +1,25 @@
-import { StartContext } from "../../../../parser/antlr/dist/PDFParser";
-import { StartNode } from "../../../../parser/ast/ast/start";
-import { DetectIndirectDefines } from "../../../../parser/ast/detect-indirect-define";
+import { IndirectDefineDetector } from "./parser/ast/IndirectDefineDetector";
+import { StartNode } from "./parser/ast/ast/start";
 
+export function buildXrefTable(ast: StartNode) {
+    if (!ast.v.xref || !ast.v.xref.src.v.kXref || !ast.v.trailer || !ast.v.trailer.src.v.kTrailer) return undefined;
 
-export function buildXrefTable(tree: StartContext, ast: StartNode) {
-    const defines = new DetectIndirectDefines().visit(tree);
+    const defines = new IndirectDefineDetector().detect(ast);
 
+    // 定義の objNum, genNum, 位置を出す
     const defPos: Array<{ objectNumber: number, generationNumber: number, start: number; }> = [];
     for (let i = 0; i < defines.length; i++) {
         const d = defines[i];
-        if (d.value.objNum != null) {
-            defPos[d.value.objNum] = {
-                objectNumber: d.value.objNum,
-                generationNumber: d.value.genNum || 0,
+        if (d.v.objNum != null && d.v.objNum.src.v) {
+            defPos[d.v.objNum.src.v.value] = {
+                objectNumber: d.v.objNum.src.v.value,
+                generationNumber: d.v.genNum?.src.v?.value || 0,
                 start: d.position.start,
             };
         }
     }
 
+    // n エントリ
     const entries: Array<string | null> = [null];
     for (let i = 1; i < defPos.length; i++) {
         const d = defPos[i];
@@ -31,6 +33,7 @@ export function buildXrefTable(tree: StartContext, ast: StartNode) {
         }
     }
 
+    // f エントリ
     let i = 0;
     while (true) {
         if (entries[i] == null) {
@@ -51,9 +54,8 @@ export function buildXrefTable(tree: StartContext, ast: StartNode) {
 
     const section = `xref\n0 ${entries.length}\n` + entries.join('');
 
-
-    const xrefStart = ast.src.xref?.position.start;
-    const trailerStart = ast.src.trailer?.src.k_trailer.symbol.start;
+    const xrefStart = ast.v.xref.src.position.start;
+    const trailerStart = ast.v.trailer?.src.v.kTrailer.src.symbol.start;
 
     return {
         start: xrefStart,

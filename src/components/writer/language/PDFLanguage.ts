@@ -11,6 +11,7 @@ import { Ascii85Encode } from "../encoding/Ascii85";
 import { buildEditOperation } from "../monaco/Build";
 import { ScopeDetector } from "./completion/ScopeDetector";
 import { suggestTrailerDict } from "./completion/dict-suggest";
+import { buildXrefTable } from "./AutoFill";
 
 
 export function registerLanguagePDF(monaco: Monaco) {
@@ -88,6 +89,20 @@ export function registerLanguagePDF(monaco: Monaco) {
         }
     });
 
+    monaco.editor.addCommand({
+        id: 'auto fill xref table',
+        run: (ctx, model: editor.ITextModel, ast: StartNode) => {
+            if (model) {
+                const xref = buildXrefTable(ast);
+                if (xref) {
+                    const codeEditor = monaco.editor.getEditors()[0];
+                    const op = buildEditOperation(model, xref.start, xref.end, xref.text);
+                    codeEditor.executeEdits(null, [op]);
+                }
+            }
+        }
+    });
+
     monaco.languages.registerCodeLensProvider('pdf', {
         provideCodeLenses: (model, token) => {
             return new Promise(resolve => {
@@ -98,8 +113,10 @@ export function registerLanguagePDF(monaco: Monaco) {
                     if (source == undefined) return resolve({ lenses: [], dispose: () => { } });
 
                     const ast = parse(astStr) as StartNode;
-                    const streams = new StreamDetector().detect(ast);
                     const lenses: languages.CodeLens[] = [];
+
+                    // upload stream file
+                    const streams = new StreamDetector().detect(ast);
                     for (let i = 0; i < streams.length; i++) {
                         const s = streams[i];
                         const pos = model.getPositionAt(s.v.main.src.position.start);
@@ -112,6 +129,20 @@ export function registerLanguagePDF(monaco: Monaco) {
                             }
                         });
                     }
+
+                    if (ast.v.xref && ast.v.xref.src.v.kXref && ast.v.trailer && ast.v.trailer.src.v.kTrailer) {
+                        // auto fill xref table
+                        const pos = model.getPositionAt(ast.v.xref.src.position.start);
+                        lenses.push({
+                            range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
+                            command: {
+                                title: 'auto complete',
+                                id: 'auto fill xref table',
+                                arguments: [model, ast],
+                            }
+                        });
+                    }
+
                     resolve({
                         lenses: lenses,
                         dispose: () => { }
