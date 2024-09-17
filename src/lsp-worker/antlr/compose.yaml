@@ -1,0 +1,13 @@
+services:
+  antlr4-builder:
+    build:
+      context: .
+      dockerfile: antlr4.Dockerfile
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+    working_dir: /app
+    command: "-Dlanguage=TypeScript -visitor -o dist PDFLexer.g4 LexerTester.g4 PDFParser.g4"
+    security_opt:
+      - label=disable
