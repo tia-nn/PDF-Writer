@@ -41,14 +41,12 @@ function App() {
                 <Header value={options} onChange={handleChangeOptions} onSelectTemplate={handleSelectTemplate}></Header>
                 <Container fluid className='main-container'>
                     <Row className='main-row'>
-                        <Col className='writer-col'><Writer
-                            value={value}
-                            onChange={handleChange}
-                            options={{
-                                autofillXrefTable: false,
-                                completeClosingQuote: true,
-                            }}
-                        ></Writer></Col>
+                        <Col className='writer-col'>
+                            <Writer
+                                value={value}
+                                onChange={handleChange}
+                            ></Writer>
+                        </Col>
                         <Col className='viewer-col'><Viewer
                             value={value}
                             type={options.viewer.type}

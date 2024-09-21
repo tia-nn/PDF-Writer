@@ -4,11 +4,6 @@
     overflow: scroll;
 }
 
-.viewer-debug-inner {
-    height: 100%;
-    width: 100%;
-}
-
 .viewer-debug * li {
     white-space: nowrap;
 }

@@ -1,21 +1,20 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef } from "react";
 import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
 import { editor } from 'monaco-editor';
-import * as _monaco from 'monaco-editor/esm/vs/editor/editor.api';
-
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import * as PDFLanguage from './writer/language/PDFLanguage';
 import { useThrottleFn } from "ahooks";
 
-function Writer({ value, options, onChange }: { value: string, options: { completeClosingQuote: boolean, }, onChange: (v: string) => void; }) {
+function Writer({ value, onChange }: { value: string, onChange: (v: string) => void; }) {
     const preventChangeEvent = useRef(false);
 
-    const monacoRef = useRef<typeof _monaco>();
+    const monacoRef = useRef<typeof monaco>();
     const editorRef = useRef<editor.IStandaloneCodeEditor>();
 
     // - - - handler - - -
 
-    const handleEditorMount = useCallback((mountedEditor: editor.IStandaloneCodeEditor, mountedMonaco: typeof _monaco) => {
+    const handleEditorMount = useCallback((mountedEditor: editor.IStandaloneCodeEditor, mountedMonaco: typeof monaco) => {
         PDFLanguage.registerLanguagePDF(mountedMonaco, mountedEditor);
         editorRef.current = mountedEditor;
         monacoRef.current = mountedMonaco;
