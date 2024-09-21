@@ -1,17 +1,17 @@
 import { PDFLanguageServer } from "./PDFLanguageServer";
-import { RequestMessage, ResponseMessage, NotificationMessage } from "vscode-languageserver-protocol";
+import * as lsp from "vscode-languageserver-protocol";
 
 function onDiagnostic(params: any) {
     postMessage({
         jsonrpc: "2.0",
         method: "textDocument/publishDiagnostics",
         params: params
-    } as NotificationMessage);
+    } as lsp.NotificationMessage);
 }
 
 const server = new PDFLanguageServer(onDiagnostic);
 
-onmessage = function (e: MessageEvent<RequestMessage>) {
+onmessage = function (e: MessageEvent<lsp.RequestMessage>) {
     const request = e.data;
 
     new Promise(async (resolve, reject) => {
@@ -27,6 +27,9 @@ onmessage = function (e: MessageEvent<RequestMessage>) {
                 server.didChangeTextDocument(request.params as any);
                 resolve(null);
                 break;
+            case "textDocument/completion":
+                resolve(await server.completion(request.params as any));
+                break;
         }
     }).then((result) => {
         if (request.id == null) return; // notification
@@ -34,7 +37,7 @@ onmessage = function (e: MessageEvent<RequestMessage>) {
             jsonrpc: "2.0",
             id: request.id,
             result: result
-        } as ResponseMessage);
+        } as lsp.ResponseMessage);
     }).catch((error) => {
         postMessage({
             jsonrpc: "2.0",
@@ -42,7 +45,7 @@ onmessage = function (e: MessageEvent<RequestMessage>) {
             error: {
                 code: -32000,
                 message: error.message
-            }
-        } as ResponseMessage);
+            } as lsp.ResponseError
+        } as lsp.ResponseMessage);
     });
 }

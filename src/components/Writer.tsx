@@ -5,7 +5,7 @@ import { editor } from 'monaco-editor';
 import * as _monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 import * as PDFLanguage from './writer/language/PDFLanguage';
-import { completeClosingQuote } from "./writer/monaco/CompleteQuote";
+import { useThrottleFn } from "ahooks";
 
 function Writer({ value, options, onChange }: { value: string, options: { completeClosingQuote: boolean, }, onChange: (v: string) => void; }) {
     const preventChangeEvent = useRef(false);
@@ -21,17 +21,17 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
         monacoRef.current = mountedMonaco;
 
         PDFLanguage.didOpenTextDocument(value);
-
-        // (, <, [ 入力時に閉じquoteも補完する
-        (mountedEditor as any).onDidType((text: string) => {
-            if (options.completeClosingQuote) completeClosingQuote(mountedEditor, text);
-        });
     }, []);
+
+    const { run: didChangeTextDocumentThrottled } = useThrottleFn(() => {
+        console.log('didChangeTextDocument');
+        PDFLanguage.didChangeTextDocument(value);
+    }, { wait: 100, leading: false });
 
     const handleChange = useCallback((newValue: string | undefined, ev: editor.IModelContentChangedEvent) => {
         if (preventChangeEvent.current) return;
         if (onChange && newValue != null) onChange(newValue);
-        PDFLanguage.didChangeTextDocument(newValue!);
+        didChangeTextDocumentThrottled();
     }, [editorRef.current]);
 
     return (<main className="writer-main">
@@ -43,6 +43,7 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
             options={{
                 fontFamily: '"Source Code Pro", "Noto Sans JP", "Last Resort"',
                 tabSize: 2,
+                autoIndent: 'full',
             }}
         ></Editor>
     </main>);

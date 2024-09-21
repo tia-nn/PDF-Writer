@@ -1,28 +1,52 @@
 import { Monaco } from "@monaco-editor/react";
-import { languages, editor } from "monaco-editor";
+import { languages, editor, IPosition, IRange } from "monaco-editor";
 import MonarchLanguagePDF from "./monarch-language-pdf";
 
-import parseWorker from "../../../worker/parse.worker?worker";
 import lspWorker from "../../../lsp-worker/worker?worker";
-import { parse } from "flatted";
-import { StreamDetector } from "./parser/ast/StreamDetector";
-import { StreamNode } from "./parser/ast/ast/stream";
-import { StartNode } from "./parser/ast/ast/start";
-import { Ascii85Encode } from "../encoding/Ascii85";
-import { buildEditOperation } from "../monaco/Build";
-import { ScopeDetector } from "./completion/ScopeDetector";
-import { suggestTrailerDict } from "./completion/dict-suggest";
-import { buildXrefTable } from "./AutoFill";
-import { DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, InitializeResult, Message, MessageType, NotificationMessage, PublishDiagnosticsParams, RequestMessage, ResponseMessage } from "vscode-languageserver";
+import * as lsp from "vscode-languageserver-protocol";
 import { createMarkers } from "../monaco/Marker";
+import { fromCompletionContext, fromPosition, toCompletionItem } from "monaco-languageserver-types";
 
 
 let server: Worker;
 let lspRequestID = 0;
 
+const ResponseQueue: { [key: number]: (result: any) => void } = {};
+
 export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCodeEditor) {
     monaco.languages.register({ id: 'pdf' });
     monaco.languages.setMonarchTokensProvider('pdf', MonarchLanguagePDF);
+    monaco.languages.setLanguageConfiguration('pdf', {
+        comments: {
+            lineComment: '%'
+        },
+        brackets: [
+            ['[', ']'],
+            ['(', ')'],
+            ['<', '>'],
+            ['<<', '>>'],
+        ],
+        autoClosingPairs: [
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '<', close: '>' },
+        ],
+        surroundingPairs: [
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '<', close: '>' },
+        ],
+        colorizedBracketPairs: [
+            ['[', ']'],
+            ['<<', '>>'],
+        ],
+        onEnterRules: [
+            {
+                beforeText: /\/(\/*)$/,
+                action: { indentAction: monaco.languages.IndentAction.Indent }
+            }
+        ]
+    });
 
     server?.terminate()
     server = new lspWorker();
@@ -31,25 +55,31 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
         jsonrpc: '2.0',
         id: lspRequestID++,
         method: 'initialize',
-        params: {} as InitializeParams,
-    } as RequestMessage);
+        params: {} as lsp.InitializeParams,
+    } as lsp.RequestMessage);
 
-    server.onmessage = (e: MessageEvent<Message>) => {
+    server.onmessage = (e: MessageEvent<lsp.Message>) => {
         const message = e.data;
-        if ((message as RequestMessage).method != null && (message as RequestMessage).id != null) {
+        if ((message as lsp.RequestMessage).method != null && (message as lsp.RequestMessage).id != null) {
             // request
-            const request = message as RequestMessage;
+            const request = message as lsp.RequestMessage;
             return;
-        } else if ((message as ResponseMessage).id != null) {
+        } else if ((message as lsp.ResponseMessage).id != null) {
             // response
-            const response = message as ResponseMessage;
+            const response = message as lsp.ResponseMessage;
+            const reqID = parseInt(String(response.id));
+            const callback = ResponseQueue[reqID];
+            if (callback) {
+                callback(response.result);
+                delete ResponseQueue[reqID];
+            }
             return;
         }
-        else if ((message as NotificationMessage).method != null) {
+        else if ((message as lsp.NotificationMessage).method != null) {
             // notification
-            const notification = message as NotificationMessage;
+            const notification = message as lsp.NotificationMessage;
             if (notification.method == 'textDocument/publishDiagnostics') {
-                const params = notification.params as PublishDiagnosticsParams;
+                const params = notification.params as lsp.PublishDiagnosticsParams;
                 const model = editor.getModel();
                 model && monaco.editor.setModelMarkers(model, 'pdf', createMarkers(params.diagnostics));
             }
@@ -57,40 +87,30 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
         }
     };
 
-    // monaco.languages.registerCompletionItemProvider('pdf', {
-    //     triggerCharacters: ['/'],
-    //     provideCompletionItems: (model, position, context, token) => {
+    monaco.languages.registerCompletionItemProvider('pdf', {
+        triggerCharacters: ['/', '%'],
+        provideCompletionItems: (model, position, context, token) => {
+            return new Promise(resolve => {
+                const reqId = lspRequestID++;
 
-    //         return new Promise(resolve => {
-    //             const worker = new parseWorker();
-    //             worker.onmessage = (e) => {
-    //                 worker.terminate();
-    //                 const [source, astStr] = e.data;
-    //                 if (source == undefined) return resolve({ suggestions: [] });
-    //                 const ast = parse(astStr) as StartNode;
+                const nameRange: IRange = {
+                    startLineNumber: position.lineNumber,
+                    startColumn: position.column - 1,
+                    endLineNumber: position.lineNumber,
+                    endColumn: position.column
+                }
 
-    //                 const word = model.getWordUntilPosition(position);
-    //                 const wordPrefix = model.getValueInRange({
-    //                     startLineNumber: position.lineNumber,
-    //                     startColumn: word.startColumn - 1,
-    //                     endLineNumber: position.lineNumber,
-    //                     endColumn: word.startColumn
-    //                 });
+                ResponseQueue[reqId] = (result: lsp.CompletionItem[]) => {
+                    console.log(result)
+                    resolve({
+                        suggestions: result.map(r => toCompletionItem(r, { range: nameRange }))
+                    });
+                };
 
-    //                 const p = model.getOffsetAt(position);
-    //                 const scope = new ScopeDetector().detect(ast, p);
-
-    //                 if (scope.kind == "dict" && scope.inTrailer) {
-    //                     resolve({
-    //                         suggestions: suggestTrailerDict(scope, position, word, wordPrefix),
-    //                         // suggestions: [],
-    //                     });
-    //                 } else resolve({ suggestions: [] });
-    //             };
-    //             worker.postMessage(model.getValue());
-    //         });
-    //     }
-    // });
+                completion(reqId, position, fromCompletionContext(context))
+            });
+        }
+    });
 
     // const inputEl = document.getElementById('file-input') as HTMLInputElement;
 
@@ -204,8 +224,8 @@ export function didOpenTextDocument(text: string) {
                 version: 1,
                 text: text,
             }
-        } as DidOpenTextDocumentParams,
-    } as NotificationMessage);
+        } as lsp.DidOpenTextDocumentParams,
+    } as lsp.NotificationMessage);
 }
 
 export function didChangeTextDocument(text: string) {
@@ -220,6 +240,23 @@ export function didChangeTextDocument(text: string) {
             contentChanges: [{
                 text: text,
             }]
-        } as DidChangeTextDocumentParams,
-    } as NotificationMessage);
+        } as lsp.DidChangeTextDocumentParams,
+    } as lsp.NotificationMessage);
+}
+
+
+function completion(reqID: number, position: IPosition, context?: lsp.CompletionContext): number {
+    server?.postMessage({
+        jsonrpc: '2.0',
+        id: reqID,
+        method: 'textDocument/completion',
+        params: {
+            textDocument: {
+                uri: 'file://test.pdf',
+            },
+            position: fromPosition(position),
+            context: context
+        } as lsp.CompletionParams,
+    } as lsp.RequestMessage);
+    return reqID
 }

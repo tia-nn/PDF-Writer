@@ -4,9 +4,10 @@ options {
 }
 
 // TODO: incremental update に対応
-start: header body xref? trailer? startxref? EOF;
+start: header body xref? trailer? startxref? EOF?;
 
-header: H_PDF? H_COMMENT* H_END;
+header: H_PDF? header_comment* H_END;
+header_comment: H_COMMENT | H_PDF;
 
 body: object*;
 
@@ -60,7 +61,7 @@ dictionary_entry: name? object;
 stream: STREAM;
 
 // objects
-indirect_obj: obj_id object? stream? K_ENDOBJ?;
+indirect_obj: obj_id object* stream? K_ENDOBJ?;
 obj_id: integer? integer? K_OBJ;
 indirect_ref: integer? integer? K_R;
 

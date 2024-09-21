@@ -18,7 +18,8 @@ function App() {
     const [options, setOptions] = useState(/**@type {Options}*/{ writer: { completeClosingQuote: true }, viewer: { type: "iframe" } });
 
     const handleChange = useCallback((newValue) => {
-        setValue(toAsciiString(newValue));
+        // setValue(toAsciiString(newValue));
+        setValue(newValue);
     }, []);
 
     const handleChangeOptions = useCallback((newOptions) => {

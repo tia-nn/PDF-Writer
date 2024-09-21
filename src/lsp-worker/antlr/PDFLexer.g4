@@ -3,7 +3,7 @@ lexer grammar PDFLexer;
 /* --- HEADER part (DEFAULT_MODE) --- */
 
 H_PDF: '%PDF-' [12][.][0-9] (EOL_MARKER | EOF);
-H_COMMENT: '%' ~[\n\r]+ (EOL_MARKER | EOF);
+H_COMMENT: '%' ~[\n\r]* (EOL_MARKER | EOF);
 
 // コメント以外の入力はロールバックしてから BODY_MODE に入って rematch する
 H_END:
