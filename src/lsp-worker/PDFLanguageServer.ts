@@ -1,5 +1,5 @@
 import { PDFLanguageParser } from "./PDFLanguageParser";
-import { ParseResult, Scope } from "./types";
+import { ParseResult, Scope, TokenLocations } from "./types";
 import * as lsp from "vscode-languageserver-protocol";
 
 
@@ -32,7 +32,7 @@ export class PDFLanguageServer {
 
     async diagnostic(result: ParseResult) {
         this.onDiagnostic({
-            uri: "",
+            uri: "file://main.pdf",
             diagnostics: result.diagnostic,
         })
     }
@@ -102,7 +102,18 @@ export class PDFLanguageServer {
         }) || [];
     }
 
-    detectScope(scopes: Scope[], position: lsp.Position): Scope[] {
+    async definition(params: lsp.DefinitionParams): Promise<lsp.Definition | null> {
+        return await this.parsing?.then((result) => {
+            const reference = this.detectReference(result.references, params.position);
+            if (reference) {
+                return result.definitions[reference] || null;
+            } else {
+                return null;
+            }
+        }) || null;
+    }
+
+    private detectScope(scopes: Scope[], position: lsp.Position): Scope[] {
         const ret = <Scope[]>[];
         for (const scope of scopes) {
             const shiftedRange: lsp.Range = {
@@ -122,7 +133,25 @@ export class PDFLanguageServer {
         return ret;
     }
 
-    isInRange(range: lsp.Range, position: lsp.Position): boolean {
+    private detectReference(references: TokenLocations, position: lsp.Position): string {
+        for (const key in references) {
+            if (this.isInRange(references[key].range, position)) {
+                return key;
+            }
+        }
+        return "";
+    }
+
+    private detectDefinition(definitions: TokenLocations, position: lsp.Position): lsp.Location | null {
+        for (const key in definitions) {
+            if (this.isInRange(definitions[key].range, position)) {
+                return definitions[key];
+            }
+        }
+        return null;
+    }
+
+    private isInRange(range: lsp.Range, position: lsp.Position): boolean {
         if (range.start.line <= position.line && position.line <= range.end.line) {
             if (range.start.line === range.end.line) {
                 return range.start.character <= position.character && position.character <= range.end.character

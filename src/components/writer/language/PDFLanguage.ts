@@ -5,7 +5,7 @@ import MonarchLanguagePDF from "./monarch-language-pdf";
 import lspWorker from "../../../lsp-worker/worker?worker";
 import * as lsp from "vscode-languageserver-protocol";
 import { createMarkers } from "../monaco/Marker";
-import { fromCompletionContext, fromPosition, toCompletionItem } from "monaco-languageserver-types";
+import { fromCompletionContext, fromPosition, toCompletionItem, toDefinition } from "monaco-languageserver-types";
 
 
 let server: Worker;
@@ -108,6 +108,31 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                 };
 
                 completion(reqId, position, fromCompletionContext(context))
+            });
+        }
+    });
+
+    monaco.languages.registerDefinitionProvider('pdf', {
+        provideDefinition: (model, position, token) => {
+            return new Promise(resolve => {
+                const reqId = lspRequestID++;
+
+                ResponseQueue[reqId] = (result: lsp.Location | null) => {
+                    console.log(result)
+                    resolve(result ? toDefinition(result) : []);
+                };
+
+                server.postMessage({
+                    jsonrpc: '2.0',
+                    id: reqId,
+                    method: 'textDocument/definition',
+                    params: {
+                        textDocument: {
+                            uri: "file://main.pdf",
+                        },
+                        position: fromPosition(position),
+                    } as lsp.DefinitionParams,
+                } as lsp.RequestMessage);
             });
         }
     });
@@ -219,7 +244,7 @@ export function didOpenTextDocument(text: string) {
         method: 'textDocument/didOpen',
         params: {
             textDocument: {
-                uri: 'file://test.pdf',
+                uri: "file://main.pdf",
                 languageId: 'pdf',
                 version: 1,
                 text: text,
@@ -234,7 +259,7 @@ export function didChangeTextDocument(text: string) {
         method: 'textDocument/didChange',
         params: {
             textDocument: {
-                uri: 'file://test.pdf',
+                uri: "file://main.pdf",
                 version: 2,
             },
             contentChanges: [{
@@ -252,7 +277,7 @@ function completion(reqID: number, position: IPosition, context?: lsp.Completion
         method: 'textDocument/completion',
         params: {
             textDocument: {
-                uri: 'file://test.pdf',
+                uri: "file://main.pdf",
             },
             position: fromPosition(position),
             context: context

@@ -30,6 +30,9 @@ onmessage = function (e: MessageEvent<lsp.RequestMessage>) {
             case "textDocument/completion":
                 resolve(await server.completion(request.params as any));
                 break;
+            case "textDocument/definition":
+                resolve(await server.definition(request.params as any));
+                break;
         }
     }).then((result) => {
         if (request.id == null) return; // notification

@@ -24,7 +24,6 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
     }, []);
 
     const { run: didChangeTextDocumentThrottled } = useThrottleFn(() => {
-        console.log('didChangeTextDocument');
         PDFLanguage.didChangeTextDocument(value);
     }, { wait: 100, leading: false });
 
@@ -40,6 +39,7 @@ function Writer({ value, options, onChange }: { value: string, options: { comple
             onChange={handleChange}
             value={value}
             language="pdf"
+            path="file://main.pdf"
             options={{
                 fontFamily: '"Source Code Pro", "Noto Sans JP", "Last Resort"',
                 tabSize: 2,

@@ -35,7 +35,11 @@ export type DictEntry = {
     value?: ObjectContext;
 }
 
+export type TokenLocations = { [key: string]: lsp.Location };
+
 export type ParseResult = {
     diagnostic: lsp.Diagnostic[];
     scopes: Scope[];
+    references: TokenLocations;
+    definitions: TokenLocations;
 }

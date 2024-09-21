@@ -1,22 +1,27 @@
 import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
-import { DictType, ParseResult, RuleIndex, Scope } from "./types";
+import { DictType, ParseResult, RuleIndex, Scope, TokenLocations } from "./types";
 import PDFLexer from "./antlr/dist/PDFLexer";
-import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, TrailerContext, XrefContext } from "./antlr/dist/PDFParser";
+import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, TrailerContext, XrefContext } from "./antlr/dist/PDFParser";
 import PDFParserListener from "./antlr/dist/PDFParserListener";
 import * as lsp from "vscode-languageserver-protocol";
+
+type Nullish<T> = T | null | undefined;
+type N<T> = Nullish<T>;
 
 export class PDFLanguageParser extends PDFParserListener {
     diagnostic: lsp.Diagnostic[] = [];
     scopes: Scope[] = [];
     inTrailer: boolean = false;
+    objectDefinition: TokenLocations = {};
+    reference: TokenLocations = {};
 
     exitStart?: ((ctx: StartContext) => void) = (ctx) => {
         const header = ctx.header();
         const body = ctx.body();
-        const xref = ctx.xref() as XrefContext | null;
-        const trailer = ctx.trailer() as TrailerContext | null;
-        const startxref = ctx.startxref() as StartxrefContext | null;
-        const eof = ctx.EOF() as TerminalNode | null;
+        const xref = ctx.xref() as N<XrefContext>;
+        const trailer = ctx.trailer() as N<TrailerContext>;
+        const startxref = ctx.startxref() as N<StartxrefContext>;
+        const eof = ctx.EOF() as N<TerminalNode>;
     }
 
     exitHeader: ((ctx: HeaderContext) => void) = (ctx) => {
@@ -48,9 +53,36 @@ export class PDFLanguageParser extends PDFParserListener {
     exitObject?: ((ctx: ObjectContext) => void) = (ctx) => {
     };
 
+    exitIndirect_obj: ((ctx: Indirect_objContext) => void) = (ctx) => {
+        const objID = ctx.obj_id();
+        const [objNum, genNum] = objID.integer_list() as (N<IntegerContext>)[];
+        if (objNum != null && genNum != null) {
+            const o = objNum.getText();
+            const g = genNum.getText();
+            const key = `${o} ${g}`;
+            this.objectDefinition[key] = {
+                uri: "file://main.pdf",
+                range: this.range(ctx),
+            };
+        }
+    };
+
+    exitIndirect_ref?: ((ctx: Indirect_refContext) => void) = (ctx) => {
+        const [objNum, genNum] = ctx.integer_list() as (N<IntegerContext>)[];
+        if (objNum != null && genNum != null) {
+            const o = objNum.getText();
+            const g = genNum.getText();
+            const key = `${o} ${g}`;
+            this.reference[key] = {
+                uri: "file://main.pdf",
+                range: this.range(ctx),
+            };
+        }
+    };
+
     exitDictionary?: ((ctx: DictionaryContext) => void) = (ctx) => {
         const open = ctx.DICT_OPEN();
-        const close = ctx.DICT_CLOSE() as TerminalNode | null;
+        const close = ctx.DICT_CLOSE() as N<TerminalNode>;
         const entries = ctx.dictionary_entry_list();
 
         const dictType: DictType = this.inTrailer ? "trailer" : "unknown";
@@ -58,7 +90,7 @@ export class PDFLanguageParser extends PDFParserListener {
         let lastToken: ParserRuleContext | TerminalNode = open;
         let lastMissingValue: boolean = false
         for (const entry of entries) {
-            const name: NameContext | null = entry.name();
+            const name: N<NameContext> = entry.name();
             const value = entry.object();
 
             // Diagnostic
@@ -257,6 +289,8 @@ export class PDFLanguageParser extends PDFParserListener {
         return {
             diagnostic: listener.diagnostic,
             scopes: listener.scopes,
+            references: listener.reference,
+            definitions: listener.objectDefinition,
         };
     }
 }
