@@ -1,5 +1,18 @@
 lexer grammar PDFLexer;
 
+@header {
+    import { LexerATNSimulatorWithPos, TokenWithEndPos } from "../lib";
+}
+
+@lexer::members {
+    emit(): Token {
+        const t = super.emit() as TokenWithEndPos;
+        t.endLine = (this._interp as LexerATNSimulatorWithPos).line;
+        t.endColumn = (this._interp as LexerATNSimulatorWithPos).column;
+        return t;
+    }
+}
+
 /* --- HEADER part (DEFAULT_MODE) --- */
 
 H_PDF: '%PDF-' [12][.][0-9] (EOL_MARKER | EOF);

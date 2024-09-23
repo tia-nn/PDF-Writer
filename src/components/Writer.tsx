@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import "./Writer.css";
 import { Editor } from '@monaco-editor/react';
 import { editor } from 'monaco-editor';
@@ -19,17 +19,23 @@ function Writer({ value, onChange }: { value: string, onChange: (v: string) => v
         editorRef.current = mountedEditor;
         monacoRef.current = mountedMonaco;
 
+        const model = mountedEditor.getModel();
+        model?.setEOL(editor.EndOfLineSequence.LF);
+
         PDFLanguage.didOpenTextDocument(value);
     }, []);
 
-    const { run: didChangeTextDocumentThrottled } = useThrottleFn(() => {
+    const { run: didChangeTextDocumentThrottled } = useThrottleFn((value: string) => {
         PDFLanguage.didChangeTextDocument(value);
     }, { wait: 100, leading: false });
+
+    useEffect(() => {
+        didChangeTextDocumentThrottled(value);
+    }, [value]);
 
     const handleChange = useCallback((newValue: string | undefined, ev: editor.IModelContentChangedEvent) => {
         if (preventChangeEvent.current) return;
         if (onChange && newValue != null) onChange(newValue);
-        didChangeTextDocumentThrottled();
     }, [editorRef.current]);
 
     return (<main className="writer-main">

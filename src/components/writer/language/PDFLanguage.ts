@@ -5,7 +5,8 @@ import MonarchLanguagePDF from "./monarch-language-pdf";
 import lspWorker from "../../../lsp-worker/worker?worker";
 import * as lsp from "vscode-languageserver-protocol";
 import { createMarkers } from "../monaco/Marker";
-import { fromCompletionContext, fromPosition, toCompletionItem, toDefinition } from "monaco-languageserver-types";
+import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toLocation } from "monaco-languageserver-types";
+import { Ascii85Encode, decodeUTF16BEA } from "@/tools/encoding";
 
 
 let server: Worker;
@@ -101,7 +102,6 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                 }
 
                 ResponseQueue[reqId] = (result: lsp.CompletionItem[]) => {
-                    console.log(result)
                     resolve({
                         suggestions: result.map(r => toCompletionItem(r, { range: nameRange }))
                     });
@@ -118,7 +118,6 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                 const reqId = lspRequestID++;
 
                 ResponseQueue[reqId] = (result: lsp.Location | null) => {
-                    console.log(result)
                     resolve(result ? toDefinition(result) : []);
                 };
 
@@ -137,105 +136,65 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
         }
     });
 
-    // const inputEl = document.getElementById('file-input') as HTMLInputElement;
+    monaco.languages.registerCodeLensProvider('pdf', {
+        provideCodeLenses: (model, token) => {
+            return new Promise(resolve => {
+                const reqId = lspRequestID++;
 
-    // monaco.editor.addCommand({
-    //     id: 'upload stream file',
-    //     run: (ctx, model: editor.ITextModel, stream: StreamNode) => {
-    //         inputEl.onchange = (e) => {
-    //             if (inputEl.files && inputEl.files.length > 0) {
-    //                 const f = inputEl.files[0];
-    //                 const reader = new FileReader();
-    //                 reader.onload = e => {
-    //                     const buf = e.target?.result as ArrayBuffer;
-    //                     const a85 = Ascii85Encode(new Uint8Array(buf));
+                ResponseQueue[reqId] = (result: lsp.CodeLens[]) => {
+                    resolve({
+                        lenses: result.map(toCodeLens),
+                        dispose: () => { }
+                    });
+                };
 
-    //                     const start = stream.v.main.src.position.start;
-    //                     let end = 0;
-    //                     if (stream.v.main.src.v.contentKEndStream) {
-    //                         end = stream.v.main.src.position.stop;
-    //                     } else {
-    //                         end = stream.v.main.src.position.stop;
-    //                     }
-    //                     const diff = 'stream\n' + a85 + '\nendstream';
+                server.postMessage({
+                    jsonrpc: '2.0',
+                    id: reqId,
+                    method: 'textDocument/codeLens',
+                    params: {
+                        textDocument: {
+                            uri: "file://main.pdf",
+                        },
+                    } as lsp.CodeLensParams,
+                } as lsp.RequestMessage);
 
-    //                     const codeEditor = monaco.editor.getEditors()[0];
+            });
+        }
+    });
 
-    //                     const op = buildEditOperation(model, start, end, diff);
-    //                     codeEditor.executeEdits(null, [op]);
+    const inputEl = document.getElementById('file-input') as HTMLInputElement;
 
-    //                     // TODO: dict の /Filter と /Length を変更する
-    //                 };
-    //                 reader.readAsArrayBuffer(f);
-    //             }
-    //         };
-    //         inputEl.click();
-    //     }
-    // });
+    monaco.editor.addCommand({
+        id: 'pdf.uploadFile',
+        run: (command: lsp.Command, loc: lsp.Location) => {
+            inputEl.onchange = (e) => {
+                if (inputEl.files && inputEl.files.length > 0) {
+                    const f = inputEl.files[0];
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        const buf = e.target?.result as ArrayBuffer;
+                        const a85 = Ascii85Encode(new Uint8Array(buf));
 
-    // monaco.editor.addCommand({
-    //     id: 'auto fill xref table',
-    //     run: (ctx, model: editor.ITextModel, ast: StartNode) => {
-    //         if (model) {
-    //             const xref = buildXrefTable(ast);
-    //             if (xref) {
-    //                 const codeEditor = monaco.editor.getEditors()[0];
-    //                 const op = buildEditOperation(model, xref.start, xref.end, xref.text);
-    //                 codeEditor.executeEdits(null, [op]);
-    //             }
-    //         }
-    //     }
-    // });
+                        const diff = 'stream\n' + a85 + '\nendstream';
 
-    // monaco.languages.registerCodeLensProvider('pdf', {
-    //     provideCodeLenses: (model, token) => {
-    //         return new Promise(resolve => {
-    //             const worker = new parseWorker();
-    //             worker.onmessage = (e) => {
-    //                 worker.terminate();
-    //                 const [source, astStr] = e.data;
-    //                 if (source == undefined) return resolve({ lenses: [], dispose: () => { } });
+                        const p = toLocation(loc)
+                        const op: editor.ISingleEditOperation = {
+                            range: p.range,
+                            text: diff,
+                            // forceMoveMarkers: true,
+                        };
+                        editor.executeEdits(null, [op]);
 
-    //                 const ast = parse(astStr) as StartNode;
-    //                 const lenses: languages.CodeLens[] = [];
-
-    //                 // upload stream file
-    //                 const streams = new StreamDetector().detect(ast);
-    //                 for (let i = 0; i < streams.length; i++) {
-    //                     const s = streams[i];
-    //                     const pos = model.getPositionAt(s.v.main.src.position.start);
-    //                     lenses.push({
-    //                         range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
-    //                         command: {
-    //                             title: 'upload file',
-    //                             id: 'upload stream file',
-    //                             arguments: [model, s],
-    //                         }
-    //                     });
-    //                 }
-
-    //                 if (ast.v.xref && ast.v.xref.src.v.kXref && ast.v.trailer && ast.v.trailer.src.v.kTrailer) {
-    //                     // auto fill xref table
-    //                     const pos = model.getPositionAt(ast.v.xref.src.position.start);
-    //                     lenses.push({
-    //                         range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
-    //                         command: {
-    //                             title: 'auto complete',
-    //                             id: 'auto fill xref table',
-    //                             arguments: [model, ast],
-    //                         }
-    //                     });
-    //                 }
-
-    //                 resolve({
-    //                     lenses: lenses,
-    //                     dispose: () => { }
-    //                 });
-    //             };
-    //             worker.postMessage(model.getValue());
-    //         });
-    //     }
-    // });
+                        // TODO: dict の /Filter と /Length を変更する
+                    };
+                    reader.readAsArrayBuffer(f);
+                    inputEl.value = '';
+                }
+            };
+            inputEl.click();
+        }
+    });
 }
 
 export function didOpenTextDocument(text: string) {
@@ -284,4 +243,24 @@ function completion(reqID: number, position: IPosition, context?: lsp.Completion
         } as lsp.CompletionParams,
     } as lsp.RequestMessage);
     return reqID
+}
+
+export async function commandEncodeTextString(): Promise<SharedArrayBuffer> {
+    return new Promise((resolve) => {
+        const reqId = lspRequestID++;
+
+        ResponseQueue[reqId] = ({ buffer }: { buffer: SharedArrayBuffer }) => {
+            resolve(buffer);
+        };
+
+        server?.postMessage({
+            jsonrpc: '2.0',
+            id: reqId,
+            method: 'workspace/executeCommand',
+            params: {
+                command: 'pdf.encodeTextString',
+                arguments: [],
+            } as lsp.ExecuteCommandParams,
+        } as lsp.RequestMessage);
+    }) || new SharedArrayBuffer(0);
 }

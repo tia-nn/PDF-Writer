@@ -37,9 +37,20 @@ export type DictEntry = {
 
 export type TokenLocations = { [key: string]: lsp.Location };
 
+export interface RangeIndex extends lsp.Range {
+    startIndex: number;
+    stopIndex: number;
+}
+
+export interface LocIndex extends lsp.Location {
+    range: RangeIndex;
+}
+
 export type ParseResult = {
+    source: string;
     diagnostic: lsp.Diagnostic[];
     scopes: Scope[];
     references: TokenLocations;
     definitions: TokenLocations;
+    streams: LocIndex[];
 }

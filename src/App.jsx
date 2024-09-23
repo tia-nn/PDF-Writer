@@ -14,7 +14,7 @@ import ImageXObjectJpeg from './samples/ImageXObjectJpeg.pdf?raw';
  */
 
 function App() {
-    const [value, setValue] = useState(toAsciiString(HelloWorld));
+    const [value, setValue] = useState((HelloWorld));
     const [options, setOptions] = useState(/**@type {Options}*/{ writer: { completeClosingQuote: true }, viewer: { type: "iframe" } });
 
     const handleChange = useCallback((newValue) => {
@@ -56,24 +56,6 @@ function App() {
             </div>
         </>
     );
-}
-
-/** @param {string} s */
-function toAsciiString(s) {
-    return new TextDecoder('ascii').decode(stringToAsciiUint8Array(s));
-}
-
-function stringToAsciiUint8Array(inputString) {
-    const uint8array = new Uint8Array(inputString.length * 2);
-    let ii = 0;
-    for (let i = 0; i < inputString.length; i++) {
-        const charCode = inputString.charCodeAt(i);
-        if (charCode > 256) {
-            uint8array[ii++] = charCode >>> 8;
-        }
-        uint8array[ii++] = charCode & 0xff;
-    }
-    return uint8array.subarray(0, ii);
 }
 
 export default App;

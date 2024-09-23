@@ -1,0 +1,101 @@
+%PDF-1.7
+
+1 0 obj
+<<
+    /Kids [2 0 R]
+    /Type /Pages
+    /Count 1
+>>
+endobj
+
+2 0 obj
+<<
+    /Resources 3 0 R
+    /Type /Page
+    /Contents [4 0 R]
+    /Parent 1 0 R
+    /MediaBox [0 0 612 792]
+>>
+endobj
+
+3 0 obj
+<<
+    /Font <<
+        /F0 <<
+            /Subtype /Type1
+            /Type /Font
+            /BaseFont /Helvetica
+        >>
+        /F1 <<
+            /Type /Font
+            % TODO: /BaseFont 効いてなさそう
+            /BaseFont /KozMinPro6N-Regular
+            /Subtype /Type0
+            /Encoding /UniJIS-UTF16-H
+            /DescendantFonts [6 0 R]
+        >>
+    >>
+>>
+endobj
+
+4 0 obj
+<<
+    /Length 67
+>>
+stream
+1. 0. 0. 1. 50. 700. cm
+BT
+    /F0 36. Tf
+    (Hello, World!) Tj
+ET
+1. 0. 0. 1. 0. -36. cm
+BT
+    /F1 36. Tf
+    (こんにちは、世界！) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+    /Type /Catalog
+    /Pages 1 0 R
+>>
+endobj
+
+6 0 obj
+<<
+  /Type /Font
+  /Subtype /CIDFontType0
+  /BaseFont /KozMinPr6N-Regular
+  /CIDSystemInfo <<
+    /Registry (Adobe)
+    /Ordering (Japan1)
+    /Supplement 6
+  >>
+  /FontDescriptor 7 0 R
+>>
+endobj
+
+7 0 obj
+<<
+  /Type /FontDescriptor
+  /FontName /KozMinPr6N-Regular
+  /Flags 4
+  /FontBBox [-437 -340 1147 1317]
+  /ItalicAngle 0
+  /Ascent 1317
+  /Descent -349
+  /CapHeight 742
+  /StemV 80
+>>
+
+xref
+trailer
+<<
+    /Root 5 0 R
+    /Size 8
+>>
+startxref
+
+%%EOF

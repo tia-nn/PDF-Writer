@@ -1,5 +1,6 @@
+import { encodeTextString } from "@/tools/encoding";
 import { PDFLanguageParser } from "./PDFLanguageParser";
-import { ParseResult, Scope, TokenLocations } from "./types";
+import { ParseResult, RangeIndex, Scope, TokenLocations } from "./types";
 import * as lsp from "vscode-languageserver-protocol";
 
 
@@ -113,6 +114,50 @@ export class PDFLanguageServer {
         }) || null;
     }
 
+    async codeLens(params: lsp.CodeLensParams): Promise<lsp.CodeLens[]> {
+        return await this.parsing?.then((result) => {
+            return result.streams.map((stream) => ({
+                range: stream.range,
+                command: {
+                    title: "Upload File",
+                    command: "pdf.uploadFile",
+                    arguments: [stream],
+                },
+            }));
+        }) || [];
+    }
+
+    async executeCommand(params: lsp.ExecuteCommandParams): Promise<any> {
+        if (params.command === "pdf.encodeTextString") {
+            return await this.commandEncodeTextString(params.arguments || {});
+        } else {
+            return null;
+        }
+    }
+
+    async commandEncodeTextString({ }: {}): Promise<{ buffer: SharedArrayBuffer }> {
+        return { buffer: new SharedArrayBuffer(0) };
+
+        // また後で実装する
+
+        return await this.parsing?.then(async (result) => {
+            const b: BlobPart[] = []
+            let after = "";
+            for (const stream of result.streams) {
+                const [before, contents, _after] = this.splitContents(result.source, stream.range);
+                after = _after;
+                const streamContents = contents.slice("stream\n".length, -"\nendstream".length + 1);
+                const encoded = encodeTextString(streamContents);
+                b.push(before, "stream\n", encoded, "\nendstream");
+            }
+            b.push(after);
+            const blob = new Blob(b, { type: "application/pdf" });
+            const buffer = new SharedArrayBuffer(blob.size);
+            new Uint8Array(buffer).set(new Uint8Array(await blob.arrayBuffer()));
+            return { buffer };
+        }) || { buffer: new SharedArrayBuffer(0) };
+    }
+
     private detectScope(scopes: Scope[], position: lsp.Position): Scope[] {
         const ret = <Scope[]>[];
         for (const scope of scopes) {
@@ -169,4 +214,35 @@ export class PDFLanguageServer {
         }
     }
 
+    private splitContents(source: string, range: RangeIndex): [string, string, string] {
+        return [
+            source.slice(0, range.startIndex),
+            source.slice(range.startIndex, range.stopIndex),
+            source.slice(range.stopIndex),
+        ]
+    }
+
+    private getContents(source: string, range: lsp.Range): string {
+        const lines = source.split("\n");
+        if (range.start.line === range.end.line) {
+            return lines[range.start.line].slice(range.start.character, range.end.character);
+        } else {
+            return [
+                lines[range.start.line].slice(range.start.character),
+                ...lines.slice(range.start.line + 1, range.end.line),
+                lines[range.end.line].slice(0, range.end.character),
+            ].join("\n");
+        }
+    }
+
+    private replaceContents(source: string, range: lsp.Range, text: string): string {
+        const lines = source.split("\n");
+        return [
+            ...lines.slice(0, range.start.line),
+            lines[range.start.line].slice(0, range.start.character) +
+            text +
+            lines[range.end.line].slice(range.end.character),
+            ...lines.slice(range.end.line + 1),
+        ].join("\n");
+    }
 }

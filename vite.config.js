@@ -8,5 +8,11 @@ export default defineConfig({
   base: "/pdf-writer/",
   build: {
     outDir: "dist/pdf-writer"
+  },
+  server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp"
+    }
   }
 });

@@ -1,9 +1,10 @@
 import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
-import { DictType, ParseResult, RuleIndex, Scope, TokenLocations } from "./types";
+import { DictType, LocIndex, ParseResult, RangeIndex, RuleIndex, Scope, TokenLocations } from "./types";
 import PDFLexer from "./antlr/dist/PDFLexer";
-import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, TrailerContext, XrefContext } from "./antlr/dist/PDFParser";
+import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, StreamContext, TrailerContext, XrefContext } from "./antlr/dist/PDFParser";
 import PDFParserListener from "./antlr/dist/PDFParserListener";
 import * as lsp from "vscode-languageserver-protocol";
+import { TokenWithEndPos } from "./antlr/lib";
 
 type Nullish<T> = T | null | undefined;
 type N<T> = Nullish<T>;
@@ -14,6 +15,7 @@ export class PDFLanguageParser extends PDFParserListener {
     inTrailer: boolean = false;
     objectDefinition: TokenLocations = {};
     reference: TokenLocations = {};
+    streams: LocIndex[] = [];
 
     exitStart?: ((ctx: StartContext) => void) = (ctx) => {
         const header = ctx.header();
@@ -175,6 +177,14 @@ export class PDFLanguageParser extends PDFParserListener {
         // });
     };
 
+    exitStream?: ((ctx: StreamContext) => void) = (ctx) => {
+        // const stream = ctx.STREAM();
+        this.streams.push({
+            uri: "file://main.pdf",
+            range: this.range(ctx),
+        });
+    };
+
     enterTrailer: ((ctx: TrailerContext) => void) = (ctx) => {
         this.inTrailer = true;
     }
@@ -246,17 +256,19 @@ export class PDFLanguageParser extends PDFParserListener {
         }
     }
 
-    range(ctx: ParserRuleContext): lsp.Range {
-        const stop = ctx.stop || ctx.start
+    range(ctx: ParserRuleContext): RangeIndex {
+        const stop = (ctx.stop || ctx.start) as TokenWithEndPos
         return {
             start: {
                 line: ctx.start.line - 1,
-                character: ctx.start.column
+                character: ctx.start.column,
             },
             end: {
-                line: stop.line - 1,
-                character: stop.column + stop.stop - stop.start + 1
-            }
+                line: stop.endLine - 1,
+                character: stop.endColumn
+            },
+            startIndex: ctx.start.start,
+            stopIndex: stop.stop,
         };
     }
 
@@ -287,10 +299,12 @@ export class PDFLanguageParser extends PDFParserListener {
         parser.start();
 
         return {
+            source: source,
             diagnostic: listener.diagnostic,
             scopes: listener.scopes,
             references: listener.reference,
             definitions: listener.objectDefinition,
+            streams: listener.streams,
         };
     }
 }
