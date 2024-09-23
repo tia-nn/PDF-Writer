@@ -33,6 +33,9 @@ onmessage = function (e: MessageEvent<lsp.RequestMessage>) {
             case "textDocument/definition":
                 resolve(await server.definition(request.params as any));
                 break;
+            case "textDocument/references":
+                resolve(await server.references(request.params as any));
+                break;
             case "textDocument/codeLens":
                 resolve(await server.codeLens(request.params as any));
                 break;

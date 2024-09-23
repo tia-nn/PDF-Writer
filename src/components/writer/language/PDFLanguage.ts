@@ -48,6 +48,9 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
             }
         ]
     });
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F12, function () {
+        editor.trigger('keyboard', 'editor.action.referenceSearch.trigger', {});
+    });
 
     server?.terminate()
     server = new lspWorker();
@@ -107,7 +110,12 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                     });
                 };
 
-                completion(reqId, position, fromCompletionContext(context))
+                send(reqId, 'textDocument/completion', {
+                    textDocument: {
+                        uri: "file://main.pdf",
+                    },
+                    position: fromPosition(position),
+                } as lsp.CompletionParams);
             });
         }
     });
@@ -121,17 +129,35 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                     resolve(result ? toDefinition(result) : []);
                 };
 
-                server.postMessage({
-                    jsonrpc: '2.0',
-                    id: reqId,
-                    method: 'textDocument/definition',
-                    params: {
-                        textDocument: {
-                            uri: "file://main.pdf",
-                        },
-                        position: fromPosition(position),
-                    } as lsp.DefinitionParams,
-                } as lsp.RequestMessage);
+                send(reqId, 'textDocument/definition', {
+                    textDocument: {
+                        uri: "file://main.pdf",
+                    },
+                    position: fromPosition(position),
+                } as lsp.DefinitionParams);
+            });
+        }
+    });
+
+    monaco.languages.registerReferenceProvider('pdf', {
+        provideReferences: (model, position, context, token) => {
+            console.log('provideReferences', position);
+            return new Promise(resolve => {
+                const reqId = lspRequestID++;
+
+                ResponseQueue[reqId] = (result: lsp.Location[]) => {
+                    resolve(result.map(toLocation));
+                };
+
+                send(reqId, 'textDocument/references', {
+                    textDocument: {
+                        uri: "file://main.pdf",
+                    },
+                    position: fromPosition(position),
+                    context: {
+                        includeDeclaration: true,
+                    },
+                } as lsp.ReferenceParams);
             });
         }
     });
@@ -243,6 +269,15 @@ function completion(reqID: number, position: IPosition, context?: lsp.Completion
         } as lsp.CompletionParams,
     } as lsp.RequestMessage);
     return reqID
+}
+
+function send(reqID: number, method: string, params: any) {
+    server?.postMessage({
+        jsonrpc: '2.0',
+        id: reqID,
+        method: method,
+        params: params
+    } as lsp.RequestMessage);
 }
 
 export async function commandEncodeTextString(): Promise<SharedArrayBuffer> {

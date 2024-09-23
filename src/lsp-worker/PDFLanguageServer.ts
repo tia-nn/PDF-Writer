@@ -1,7 +1,10 @@
-import { encodeTextString } from "@/tools/encoding";
-import { PDFLanguageParser } from "./PDFLanguageParser";
-import { ParseResult, RangeIndex, Scope, TokenLocations } from "./types";
+import { ParseResult, Scope, IndirectDefLocations, IndirectRefLocations } from "./types";
 import * as lsp from "vscode-languageserver-protocol";
+import { BasePDFParserListener } from "./listener/BasePDFParserListener";
+import { DiagnosticParser } from "./listener/Diagnostic";
+import { StreamParser } from "./listener/Stream";
+import { IndirectParser } from "./listener/Indirect";
+import { ScopeParser } from "./listener/Scope";
 
 
 export class PDFLanguageServer {
@@ -39,19 +42,11 @@ export class PDFLanguageServer {
     }
 
     async didOpenTextDocument(params: lsp.DidOpenTextDocumentParams) {
-        this.parsing = new Promise(async (resolve, reject) => {
-            this.parseReject?.();
-            this.parseReject = reject;
-            resolve(PDFLanguageParser.parse(params.textDocument.text))
-        });
+        this.parse(params.textDocument.text);
     }
 
     async didChangeTextDocument(params: lsp.DidChangeTextDocumentParams) {
-        this.parsing = new Promise(async (resolve, reject) => {
-            this.parseReject?.();
-            this.parseReject = reject;
-            resolve(PDFLanguageParser.parse(params.contentChanges[0]?.text))
-        });
+        this.parse(params.contentChanges[0].text);
     }
 
     async completion(params: lsp.CompletionParams): Promise<lsp.CompletionItem[]> {
@@ -107,11 +102,25 @@ export class PDFLanguageServer {
         return await this.parsing?.then((result) => {
             const reference = this.detectReference(result.references, params.position);
             if (reference) {
-                return result.definitions[reference] || null;
+                const [o, g] = reference;
+                return result.definitions[o]?.[g] || [];
             } else {
                 return null;
             }
         }) || null;
+    }
+
+    async references(params: lsp.ReferenceParams): Promise<lsp.Location[]> {
+        return await this.parsing?.then((result) => {
+            const definition = this.detectDefinition(result.definitions, params.position);
+            if (definition) {
+                const [o, g] = definition;
+                return result.references[o]?.[g] || [];
+            } else {
+                console.log("not found");
+                return [];
+            }
+        }) || [];
     }
 
     async codeLens(params: lsp.CodeLensParams): Promise<lsp.CodeLens[]> {
@@ -140,22 +149,22 @@ export class PDFLanguageServer {
 
         // また後で実装する
 
-        return await this.parsing?.then(async (result) => {
-            const b: BlobPart[] = []
-            let after = "";
-            for (const stream of result.streams) {
-                const [before, contents, _after] = this.splitContents(result.source, stream.range);
-                after = _after;
-                const streamContents = contents.slice("stream\n".length, -"\nendstream".length + 1);
-                const encoded = encodeTextString(streamContents);
-                b.push(before, "stream\n", encoded, "\nendstream");
-            }
-            b.push(after);
-            const blob = new Blob(b, { type: "application/pdf" });
-            const buffer = new SharedArrayBuffer(blob.size);
-            new Uint8Array(buffer).set(new Uint8Array(await blob.arrayBuffer()));
-            return { buffer };
-        }) || { buffer: new SharedArrayBuffer(0) };
+        // return await this.parsing?.then(async (result) => {
+        //     const b: BlobPart[] = []
+        //     let after = "";
+        //     for (const stream of result.streams) {
+        //         const [before, contents, _after] = this.splitContents(result.source, stream.range);
+        //         after = _after;
+        //         const streamContents = contents.slice("stream\n".length, -"\nendstream".length + 1);
+        //         const encoded = encodeTextString(streamContents);
+        //         b.push(before, "stream\n", encoded, "\nendstream");
+        //     }
+        //     b.push(after);
+        //     const blob = new Blob(b, { type: "application/pdf" });
+        //     const buffer = new SharedArrayBuffer(blob.size);
+        //     new Uint8Array(buffer).set(new Uint8Array(await blob.arrayBuffer()));
+        //     return { buffer };
+        // }) || { buffer: new SharedArrayBuffer(0) };
     }
 
     private detectScope(scopes: Scope[], position: lsp.Position): Scope[] {
@@ -178,19 +187,27 @@ export class PDFLanguageServer {
         return ret;
     }
 
-    private detectReference(references: TokenLocations, position: lsp.Position): string {
-        for (const key in references) {
-            if (this.isInRange(references[key].range, position)) {
-                return key;
+    private detectReference(references: IndirectRefLocations, position: lsp.Position): [number, number] | null {
+        for (const o in references) {
+            for (const g in references[o]) {
+                // if (references[o] === undefined || references[o][g] === undefined) continue;
+                for (const ref of references[o][g]) {
+                    if (this.isInRange(ref.range, position)) {
+                        return [parseInt(o), parseInt(g)];
+                    }
+                }
             }
         }
-        return "";
+        return null;
     }
 
-    private detectDefinition(definitions: TokenLocations, position: lsp.Position): lsp.Location | null {
-        for (const key in definitions) {
-            if (this.isInRange(definitions[key].range, position)) {
-                return definitions[key];
+    private detectDefinition(definitions: IndirectDefLocations, position: lsp.Position): [number, number] | null {
+        for (const o in definitions) {
+            for (const g in definitions[o]) {
+                // if (definitions[o] === undefined || definitions[o][g] === undefined) continue;
+                if (this.isInRange(definitions[o][g].range, position)) {
+                    return [parseInt(o), parseInt(g)];
+                }
             }
         }
         return null;
@@ -214,35 +231,24 @@ export class PDFLanguageServer {
         }
     }
 
-    private splitContents(source: string, range: RangeIndex): [string, string, string] {
-        return [
-            source.slice(0, range.startIndex),
-            source.slice(range.startIndex, range.stopIndex),
-            source.slice(range.stopIndex),
-        ]
-    }
-
-    private getContents(source: string, range: lsp.Range): string {
-        const lines = source.split("\n");
-        if (range.start.line === range.end.line) {
-            return lines[range.start.line].slice(range.start.character, range.end.character);
-        } else {
-            return [
-                lines[range.start.line].slice(range.start.character),
-                ...lines.slice(range.start.line + 1, range.end.line),
-                lines[range.end.line].slice(0, range.end.character),
-            ].join("\n");
-        }
-    }
-
-    private replaceContents(source: string, range: lsp.Range, text: string): string {
-        const lines = source.split("\n");
-        return [
-            ...lines.slice(0, range.start.line),
-            lines[range.start.line].slice(0, range.start.character) +
-            text +
-            lines[range.end.line].slice(range.end.character),
-            ...lines.slice(range.end.line + 1),
-        ].join("\n");
+    private parse(s: string) {
+        this.parsing = new Promise(async (resolve, reject) => {
+            this.parseReject?.();
+            this.parseReject = reject;
+            const diagnosticParser = new DiagnosticParser();
+            const streamParser = new StreamParser();
+            const indirectParser = new IndirectParser();
+            const scopeParser = new ScopeParser();
+            BasePDFParserListener.parse(s, [diagnosticParser, streamParser, indirectParser, scopeParser]);
+            const i = indirectParser.result();
+            resolve({
+                source: s,
+                diagnostic: diagnosticParser.result(),
+                scopes: scopeParser.result(),
+                references: i.reference,
+                definitions: i.definition,
+                streams: streamParser.result(),
+            });
+        });
     }
 }

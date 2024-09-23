@@ -35,11 +35,16 @@ export type DictEntry = {
     value?: ObjectContext;
 }
 
-export type TokenLocations = { [key: string]: lsp.Location };
+export type IndirectDefLocations = { [key: number]: { [key: number]: LocIndex } };
+export type IndirectRefLocations = { [key: number]: { [key: number]: LocIndex[] } };
+
+export interface PosIndex extends lsp.Position {
+    index: number;
+}
 
 export interface RangeIndex extends lsp.Range {
-    startIndex: number;
-    stopIndex: number;
+    start: PosIndex;
+    end: PosIndex;
 }
 
 export interface LocIndex extends lsp.Location {
@@ -50,7 +55,7 @@ export type ParseResult = {
     source: string;
     diagnostic: lsp.Diagnostic[];
     scopes: Scope[];
-    references: TokenLocations;
-    definitions: TokenLocations;
+    references: IndirectRefLocations;
+    definitions: IndirectDefLocations;
     streams: LocIndex[];
 }

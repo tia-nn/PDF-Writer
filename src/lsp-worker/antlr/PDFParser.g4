@@ -68,7 +68,7 @@ indirect_ref: integer? integer? K_R;
 invalid_code: INVALID_CHAR;
 
 // xref
-xref: K_XREF X_EOL? (xref_header | xref_entry)*;
+xref: K_XREF X_EOL? (xref_entry | xref_header)*;
 xref_header: X_INTEGER X_WS* X_INTEGER? xref_invalid* X_EOL?;
 xref_entry:
 	X_INTEGER? X_WS* X_INTEGER? X_WS* X_TYPE xref_invalid* X_EOL?
