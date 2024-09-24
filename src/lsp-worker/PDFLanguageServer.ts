@@ -4,7 +4,8 @@ import { BasePDFParserListener } from "./listener/BasePDFParserListener";
 import { DiagnosticParser } from "./listener/Diagnostic";
 import { StreamParser } from "./listener/Stream";
 import { IndirectParser } from "./listener/Indirect";
-import { ScopeParser } from "./listener/Scope";
+import { ParseTreeWalker } from "antlr4";
+import { ScopeVisitor } from "./listener/ScopeVisitor";
 
 
 export class PDFLanguageServer {
@@ -49,55 +50,6 @@ export class PDFLanguageServer {
         this.parse(params.contentChanges[0].text);
     }
 
-    async completion(params: lsp.CompletionParams): Promise<lsp.CompletionItem[]> {
-        return await this.parsing?.then((result) => {
-            const scopes = result.scopes;
-            const inScopes = this.detectScope(scopes, params.position);
-
-            const items = [
-                "obj", "endobj", "stream", "endstream", "R",
-                "xref", "trailer", "startxref", "%%EOF"
-            ].map((label) => ({
-                label: label,
-                kind: lsp.CompletionItemKind.Keyword,
-            } as lsp.CompletionItem));
-
-            if (params.position.line === 0 && params.position.character === 1) {
-                items.push(...[{
-                    label: "%PDF-1.0",
-                    kind: lsp.CompletionItemKind.Keyword,
-                }]);
-            }
-
-            for (const scope of inScopes) {
-                if (scope.kind === "dict-key") {
-                    if (scope.dictType === "trailer") {
-                        items.push(...[
-                            "/Size", "/Prev", "/Root", "/Info",
-                        ].map((label) => ({
-                            label: label,
-                            kind: lsp.CompletionItemKind.Variable,
-                        })));
-                    } else {
-                        items.push(...[{
-                            label: "/Type",
-                            kind: lsp.CompletionItemKind.Variable,
-                        }]);
-                    }
-                } else if (scope.kind === "dict-value") {
-                    if (scope.key === "/Type") {
-                        items.push(...["/Catalog", "/Page", "/Pages", "/Font"].map((label) => ({
-                            label: label,
-                            kind: lsp.CompletionItemKind.Variable,
-                        })));
-                    }
-                }
-            }
-
-            return items;
-        }) || [];
-    }
-
     async definition(params: lsp.DefinitionParams): Promise<lsp.Definition | null> {
         return await this.parsing?.then((result) => {
             const reference = this.detectReference(result.references, params.position);
@@ -117,7 +69,6 @@ export class PDFLanguageServer {
                 const [o, g] = definition;
                 return result.references[o]?.[g] || [];
             } else {
-                console.log("not found");
                 return [];
             }
         }) || [];
@@ -139,9 +90,20 @@ export class PDFLanguageServer {
     async executeCommand(params: lsp.ExecuteCommandParams): Promise<any> {
         if (params.command === "pdf.encodeTextString") {
             return await this.commandEncodeTextString(params.arguments || {});
+        } else if (params.command === "pdf.getScope") {
+            return await this.commandGetScope(...(params.arguments as [lsp.Position]));
         } else {
             return null;
         }
+    }
+
+    async commandGetScope(position: lsp.Position): Promise<{ scope: Scope | null }> {
+        console.log("getScope");
+        return await this.parsing?.then((result) => {
+            const s = new ScopeVisitor(position);
+            ParseTreeWalker.DEFAULT.walk(s, result.tree);
+            return { scope: s.result() };
+        }) || { scope: null };
     }
 
     async commandEncodeTextString({ }: {}): Promise<{ buffer: SharedArrayBuffer }> {
@@ -165,26 +127,6 @@ export class PDFLanguageServer {
         //     new Uint8Array(buffer).set(new Uint8Array(await blob.arrayBuffer()));
         //     return { buffer };
         // }) || { buffer: new SharedArrayBuffer(0) };
-    }
-
-    private detectScope(scopes: Scope[], position: lsp.Position): Scope[] {
-        const ret = <Scope[]>[];
-        for (const scope of scopes) {
-            const shiftedRange: lsp.Range = {
-                start: {
-                    line: scope.range.start.line,
-                    character: scope.range.start.character + 1,
-                },
-                end: {
-                    line: scope.range.end.line,
-                    character: scope.range.end.character + 1,
-                },
-            }
-            if (this.isInRange(shiftedRange, position)) {
-                ret.push(scope);
-            }
-        }
-        return ret;
     }
 
     private detectReference(references: IndirectRefLocations, position: lsp.Position): [number, number] | null {
@@ -238,13 +180,12 @@ export class PDFLanguageServer {
             const diagnosticParser = new DiagnosticParser();
             const streamParser = new StreamParser();
             const indirectParser = new IndirectParser();
-            const scopeParser = new ScopeParser();
-            BasePDFParserListener.parse(s, [diagnosticParser, streamParser, indirectParser, scopeParser]);
+            const start = BasePDFParserListener.parse(s, [diagnosticParser, streamParser, indirectParser]);
             const i = indirectParser.result();
             resolve({
                 source: s,
+                tree: start,
                 diagnostic: diagnosticParser.result(),
-                scopes: scopeParser.result(),
                 references: i.reference,
                 definitions: i.definition,
                 streams: streamParser.result(),

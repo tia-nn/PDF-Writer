@@ -52,11 +52,9 @@ export function encodeStream(s: string) {
 
 export function encodeTextString(s: string) {
     if (isAscii(s)) {
-        console.log('Ascii');
         return new TextEncoder().encode(s);
     }
     if (isValidUTF16(s)) {
-        console.log('UTF16');
         return encodeUTF16BEwBOM(s);
     }
     return toUint16Array(s);
@@ -73,7 +71,6 @@ function encodeUTF16BEwBOM(str: string) {
 
 function isAscii(c: string) {
     for (let i = 0; i < c.length; i++) {
-        console.log(c.charAt(i), c.charCodeAt(i));
         if (c.charCodeAt(i) >= 0x80) return false;
     }
     return true;

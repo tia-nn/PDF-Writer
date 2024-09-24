@@ -6,22 +6,27 @@ export interface RuleIndex extends ParserRuleContext {
     get ruleIndex(): number;
 }
 
+// export type ScopeKind = 'header' | 'body_root' | 'object' | 'dict-key' | 'dict-value' | 'xref' | 'trailer';
 export type ScopeKind = 'header' | 'body_root' | 'object' | 'dict-key' | 'dict-value' | 'xref' | 'trailer';
-export type DictType = 'unknown' | 'trailer';
+export const DICT_TYPE = ['unknown', 'trailer', '/Catalog'] as const;
+export type DictType = typeof DICT_TYPE[number];
 
-export type Scope = {
-    range: lsp.Range;
-    kind: Exclude<ScopeKind, 'dict-key' | 'dict-value'>;
-} | {
-    range: lsp.Range;
-    kind: 'dict-key';
-    dictType: DictType;
-} | {
-    range: lsp.Range;
-    kind: 'dict-value';
-    key: string;
-    dictType: DictType;
-}
+export type Scope =
+    // {
+    //     range: lsp.Range;
+    //     kind: Exclude<ScopeKind, 'dict-key' | 'dict-value'>;
+    // } |
+    {
+        // range: lsp.Range;
+        kind: 'dict-key';
+        dictType: DictType;
+        have: string[];
+    } | {
+        // range: lsp.Range;
+        kind: 'dict-value';
+        key: string;
+        dictType: DictType;
+    }
 
 export type DictNode = {
     entries: DictEntry[];
@@ -53,8 +58,8 @@ export interface LocIndex extends lsp.Location {
 
 export type ParseResult = {
     source: string;
+    tree: ParserRuleContext;
     diagnostic: lsp.Diagnostic[];
-    scopes: Scope[];
     references: IndirectRefLocations;
     definitions: IndirectDefLocations;
     streams: LocIndex[];

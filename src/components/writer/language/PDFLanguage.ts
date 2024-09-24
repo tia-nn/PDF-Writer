@@ -7,6 +7,8 @@ import * as lsp from "vscode-languageserver-protocol";
 import { createMarkers } from "../monaco/Marker";
 import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toLocation } from "monaco-languageserver-types";
 import { Ascii85Encode, decodeUTF16BEA } from "@/tools/encoding";
+import { Scope } from "@/lsp-worker/types";
+import { completionComments, completionDict } from "./completion";
 
 
 let server: Worker;
@@ -95,27 +97,25 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
         triggerCharacters: ['/', '%'],
         provideCompletionItems: (model, position, context, token) => {
             return new Promise(resolve => {
-                const reqId = lspRequestID++;
+                const ret: languages.CompletionItem[] = [];
+                const wordAt = model.getWordAtPosition(position);
+                const leadChar = model.getValueInRange(new monaco.Range(position.lineNumber, position.column - 1, position.lineNumber, position.column));
 
-                const nameRange: IRange = {
-                    startLineNumber: position.lineNumber,
-                    startColumn: position.column - 1,
-                    endLineNumber: position.lineNumber,
-                    endColumn: position.column
-                }
+                let backColumn = leadChar === '/' ? - 1 : 0;
+                const range = wordAt
+                    ? new monaco.Range(position.lineNumber, wordAt.startColumn + backColumn, position.lineNumber, wordAt.endColumn)
+                    : new monaco.Range(position.lineNumber, position.column + backColumn, position.lineNumber, position.column);
 
-                ResponseQueue[reqId] = (result: lsp.CompletionItem[]) => {
+                ret.push(...completionComments(model, position, context));
+
+                commandGetScope(position).then(scope => {
+                    scope && ret.push(...completionDict(model, position, context, scope));
+
+                    console.log(ret);
                     resolve({
-                        suggestions: result.map(r => toCompletionItem(r, { range: nameRange }))
+                        suggestions: ret,
                     });
-                };
-
-                send(reqId, 'textDocument/completion', {
-                    textDocument: {
-                        uri: "file://main.pdf",
-                    },
-                    position: fromPosition(position),
-                } as lsp.CompletionParams);
+                });
             });
         }
     });
@@ -141,7 +141,6 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
 
     monaco.languages.registerReferenceProvider('pdf', {
         provideReferences: (model, position, context, token) => {
-            console.log('provideReferences', position);
             return new Promise(resolve => {
                 const reqId = lspRequestID++;
 
@@ -254,23 +253,6 @@ export function didChangeTextDocument(text: string) {
     } as lsp.NotificationMessage);
 }
 
-
-function completion(reqID: number, position: IPosition, context?: lsp.CompletionContext): number {
-    server?.postMessage({
-        jsonrpc: '2.0',
-        id: reqID,
-        method: 'textDocument/completion',
-        params: {
-            textDocument: {
-                uri: "file://main.pdf",
-            },
-            position: fromPosition(position),
-            context: context
-        } as lsp.CompletionParams,
-    } as lsp.RequestMessage);
-    return reqID
-}
-
 function send(reqID: number, method: string, params: any) {
     server?.postMessage({
         jsonrpc: '2.0',
@@ -295,6 +277,26 @@ export async function commandEncodeTextString(): Promise<SharedArrayBuffer> {
             params: {
                 command: 'pdf.encodeTextString',
                 arguments: [],
+            } as lsp.ExecuteCommandParams,
+        } as lsp.RequestMessage);
+    }) || new SharedArrayBuffer(0);
+}
+
+export async function commandGetScope(position: IPosition): Promise<Scope | null> {
+    return new Promise((resolve) => {
+        const reqId = lspRequestID++;
+
+        ResponseQueue[reqId] = ({ scope }: { scope: Scope | null }) => {
+            resolve(scope);
+        };
+
+        server?.postMessage({
+            jsonrpc: '2.0',
+            id: reqId,
+            method: 'workspace/executeCommand',
+            params: {
+                command: 'pdf.getScope',
+                arguments: [fromPosition(position)],
             } as lsp.ExecuteCommandParams,
         } as lsp.RequestMessage);
     }) || new SharedArrayBuffer(0);

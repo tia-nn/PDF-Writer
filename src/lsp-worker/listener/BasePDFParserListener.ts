@@ -1,7 +1,7 @@
 import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
 import { RangeIndex } from "../types";
 import PDFLexer from "../antlr/dist/PDFLexer";
-import PDFParser, { IntegerContext, NumberContext, RealContext } from "../antlr/dist/PDFParser";
+import PDFParser, { IntegerContext, NameContext, NumberContext, RealContext, StartContext } from "../antlr/dist/PDFParser";
 import PDFParserListener from "../antlr/dist/PDFParserListener";
 import * as lsp from "vscode-languageserver-protocol";
 import { TokenWithEndPos } from "../antlr/lib";
@@ -26,6 +26,11 @@ export class BasePDFParserListener extends PDFParserListener {
 
     parseReal(n: RealContext): number {
         return parseFloat(n.getText());
+    }
+
+    parseName(n: NameContext): string {
+        // TODO: escape 解釈
+        return n.getText();
     }
 
     headRange(ctx: Positional): RangeIndex {
@@ -124,7 +129,7 @@ export class BasePDFParserListener extends PDFParserListener {
         }
     }
 
-    public static parse(source: string, listeners: BasePDFParserListener[]) {
+    public static parse(source: string, listeners: BasePDFParserListener[]): StartContext {
         const chars = antlr4.CharStreams.fromString(source);
         const lexer = new PDFLexer(chars);
 
@@ -132,6 +137,6 @@ export class BasePDFParserListener extends PDFParserListener {
         const parser = new PDFParser(tokens);
         listeners.forEach(listener => parser.addParseListener(listener));
 
-        parser.start();
+        return parser.start();
     }
 }
