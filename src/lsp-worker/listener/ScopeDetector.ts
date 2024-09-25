@@ -1,14 +1,15 @@
 import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
-import { DICT_TYPE, DictType, LocIndex, ParseResult, RangeIndex, RuleIndex, Scope } from "../types";
+import { LocIndex, ParseResult, RangeIndex, RuleIndex, Scope } from "../types";
 import PDFLexer from "../antlr/dist/PDFLexer";
 import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, StreamContext, TrailerContext, XrefContext } from "../antlr/dist/PDFParser";
 import PDFParserListener from "../antlr/dist/PDFParserListener";
 import * as lsp from "vscode-languageserver-protocol";
 import { TokenWithEndPos } from "../antlr/lib";
 import { BasePDFParserListener, N } from "./BasePDFParserListener";
+import { DictType, DICT_TYPE } from '@/tools/dictTyping';
 
 
-export class ScopeVisitor extends BasePDFParserListener {
+export class ScopeDetector extends BasePDFParserListener {
     scope: Scope | null = null;
     inTrailer: boolean = false;
     position: lsp.Position;

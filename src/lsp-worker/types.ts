@@ -1,6 +1,7 @@
 import { ParserRuleContext, TerminalNode } from 'antlr4';
 import * as lsp from 'vscode-languageserver-protocol';
 import { NameContext, ObjectContext } from './antlr/dist/PDFParser';
+import { DictType } from '@/tools/dictTyping';
 
 export interface RuleIndex extends ParserRuleContext {
     get ruleIndex(): number;
@@ -8,8 +9,6 @@ export interface RuleIndex extends ParserRuleContext {
 
 // export type ScopeKind = 'header' | 'body_root' | 'object' | 'dict-key' | 'dict-value' | 'xref' | 'trailer';
 export type ScopeKind = 'header' | 'body_root' | 'object' | 'dict-key' | 'dict-value' | 'xref' | 'trailer';
-export const DICT_TYPE = ['unknown', 'trailer', '/Catalog'] as const;
-export type DictType = typeof DICT_TYPE[number];
 
 export type Scope =
     // {
@@ -27,6 +26,11 @@ export type Scope =
         key: string;
         dictType: DictType;
     }
+
+export type DictKeyType = {
+    dictType: DictType;
+    key: string;
+}
 
 export type DictNode = {
     entries: DictEntry[];

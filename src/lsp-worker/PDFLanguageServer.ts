@@ -5,7 +5,9 @@ import { DiagnosticParser } from "./listener/Diagnostic";
 import { StreamParser } from "./listener/Stream";
 import { IndirectParser } from "./listener/Indirect";
 import { ParseTreeWalker } from "antlr4";
-import { ScopeVisitor } from "./listener/ScopeVisitor";
+import { ScopeDetector } from "./listener/ScopeDetector";
+import { DictKeyDetector } from "./listener/DictKeyDetector";
+import { DictDefinitions } from "@/tools/dictTyping";
 
 
 export class PDFLanguageServer {
@@ -74,6 +76,28 @@ export class PDFLanguageServer {
         }) || [];
     }
 
+    async hover(params: lsp.HoverParams): Promise<lsp.Hover | null> {
+        return await this.parsing?.then((result) => {
+            const keyDetector = new DictKeyDetector(params.position);
+            ParseTreeWalker.DEFAULT.walk(keyDetector, result.tree);
+            const key = keyDetector.result();
+            if (key) {
+                return {
+                    contents: {
+                        kind: lsp.MarkupKind.Markdown,
+                        value: [
+                            `\`${key.key}\``,
+                            ``,
+                            `${DictDefinitions[key.dictType][key.key]?.description || "No description"}`,
+                        ].join("\n"),
+                    },
+                }
+            } else {
+                return null;
+            }
+        }) || null;
+    }
+
     async codeLens(params: lsp.CodeLensParams): Promise<lsp.CodeLens[]> {
         return await this.parsing?.then((result) => {
             return result.streams.map((stream) => ({
@@ -100,7 +124,7 @@ export class PDFLanguageServer {
     async commandGetScope(position: lsp.Position): Promise<{ scope: Scope | null }> {
         console.log("getScope");
         return await this.parsing?.then((result) => {
-            const s = new ScopeVisitor(position);
+            const s = new ScopeDetector(position);
             ParseTreeWalker.DEFAULT.walk(s, result.tree);
             return { scope: s.result() };
         }) || { scope: null };

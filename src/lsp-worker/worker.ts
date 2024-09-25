@@ -36,6 +36,9 @@ onmessage = function (e: MessageEvent<lsp.RequestMessage>) {
             case "textDocument/codeLens":
                 resolve(await server.codeLens(request.params as any));
                 break;
+            case "textDocument/hover":
+                resolve(await server.hover(request.params as any));
+                break;
             case "workspace/executeCommand":
                 resolve(await server.executeCommand(request.params as any));
                 break;

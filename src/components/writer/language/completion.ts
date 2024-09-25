@@ -1,5 +1,7 @@
-import { DictType, Scope } from "@/lsp-worker/types";
+import { Scope } from "@/lsp-worker/types";
+import { DictDefinitions } from "@/tools/dictTyping";
 import * as monaco from "monaco-editor";
+import { DictType } from '@/tools/dictTyping';
 
 const keywords = [
     "obj",
@@ -46,23 +48,6 @@ export function completionComments(model: monaco.editor.ITextModel, position: mo
     return ret;
 }
 
-const items: { [key in DictType]: { keys: string[], values: { [key: string]: string[] | undefined } } } = {
-    "unknown": {
-        keys: ["/Type"],
-        values: {
-            "/Type": ["/Catalog", "/Pages", "/Page", "/Font"]
-        }
-    },
-    "trailer": { keys: ["/Root", "/Size", "/Prev", "/Info"], values: {} },
-    "/Catalog": {
-        keys: ["/Pages", "/Outlines", "/PageMode"], values: {
-            "/Pages": [],
-            "/Outlines": [],
-            "/PageMode": ["/UseNone", "/UseOutlines", "/UseThumbs"],
-        }
-    },
-}
-
 export function completionDict(model: monaco.editor.ITextModel, position: monaco.IPosition, context: monaco.languages.CompletionContext, scope: Scope): monaco.languages.CompletionItem[] {
     const ret = []
     const wordAt = model.getWordAtPosition(position);
@@ -74,7 +59,7 @@ export function completionDict(model: monaco.editor.ITextModel, position: monaco
 
     if (scope.kind === 'dict-key') {
         console.log("dict-key", scope)
-        const keys = items[scope.dictType].keys.filter(item => !scope.have.includes(item));
+        const keys = Object.keys(DictDefinitions[scope.dictType]).filter(item => !scope.have.includes(item));
         ret.push(...keys.map(item => ({
             label: item,
             kind: monaco.languages.CompletionItemKind.Variable,
@@ -82,13 +67,15 @@ export function completionDict(model: monaco.editor.ITextModel, position: monaco
             range: range,
         })))
     } else if (scope.kind === 'dict-value') {
-        const keys = items[scope.dictType].values[scope.key] || [];
-        ret.push(...keys.map(item => ({
-            label: item,
-            kind: monaco.languages.CompletionItemKind.Variable,
-            insertText: item,
-            range: range,
-        })))
+        const keys = DictDefinitions[scope.dictType][scope.key];
+        if (keys && keys.enum) {
+            ret.push(...keys.enum.map(item => ({
+                label: item,
+                kind: monaco.languages.CompletionItemKind.Variable,
+                insertText: item,
+                range: range,
+            })))
+        }
     }
 
     return ret;

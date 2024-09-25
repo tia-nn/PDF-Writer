@@ -5,7 +5,7 @@ import MonarchLanguagePDF from "./monarch-language-pdf";
 import lspWorker from "../../../lsp-worker/worker?worker";
 import * as lsp from "vscode-languageserver-protocol";
 import { createMarkers } from "../monaco/Marker";
-import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toLocation } from "monaco-languageserver-types";
+import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toHover, toLocation } from "monaco-languageserver-types";
 import { Ascii85Encode, decodeUTF16BEA } from "@/tools/encoding";
 import { Scope } from "@/lsp-worker/types";
 import { completionComments, completionDict } from "./completion";
@@ -184,6 +184,25 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                     } as lsp.CodeLensParams,
                 } as lsp.RequestMessage);
 
+            });
+        }
+    });
+
+    monaco.languages.registerHoverProvider('pdf', {
+        provideHover: (model, position, token) => {
+            return new Promise(resolve => {
+                const reqId = lspRequestID++;
+
+                ResponseQueue[reqId] = (result: lsp.Hover | null) => {
+                    resolve(result ? toHover(result) : null);
+                };
+
+                send(reqId, 'textDocument/hover', {
+                    textDocument: {
+                        uri: "file://main.pdf",
+                    },
+                    position: fromPosition(position),
+                } as lsp.HoverParams);
             });
         }
     });
