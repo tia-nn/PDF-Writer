@@ -4,9 +4,8 @@ import MonarchLanguagePDF from "./monarch-language-pdf";
 
 import lspWorker from "../../../lsp-worker/worker?worker";
 import * as lsp from "vscode-languageserver-protocol";
-import { createMarkers } from "../monaco/Marker";
-import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toHover, toLocation } from "monaco-languageserver-types";
-import { Ascii85Encode, decodeUTF16BEA } from "@/tools/encoding";
+import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toHover, toLocation, toMarkerData, toTextEdit } from "monaco-languageserver-types";
+import { Ascii85Encode } from "@/tools/encoding";
 import { Scope } from "@/lsp-worker/types";
 import { completionComments, completionDict } from "./completion";
 
@@ -87,7 +86,7 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
             if (notification.method == 'textDocument/publishDiagnostics') {
                 const params = notification.params as lsp.PublishDiagnosticsParams;
                 const model = editor.getModel();
-                model && monaco.editor.setModelMarkers(model, 'pdf', createMarkers(params.diagnostics));
+                model && monaco.editor.setModelMarkers(model, 'pdf', params.diagnostics.map(toMarkerData));
             }
             return;
         }
@@ -239,6 +238,17 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
             inputEl.click();
         }
     });
+
+    monaco.editor.addCommand({
+        id: 'pdf.insertXRefTable',
+        run: (command: lsp.Command, loc: lsp.Location) => {
+            commandInsertXRefTable().then(textEdit => {
+                if (textEdit) {
+                    editor.executeEdits(null, [toTextEdit(textEdit)]);
+                }
+            });
+        }
+    });
 }
 
 export function didOpenTextDocument(text: string) {
@@ -319,4 +329,24 @@ export async function commandGetScope(position: IPosition): Promise<Scope | null
             } as lsp.ExecuteCommandParams,
         } as lsp.RequestMessage);
     }) || new SharedArrayBuffer(0);
+}
+
+async function commandInsertXRefTable(): Promise<lsp.TextEdit | null> {
+    return new Promise((resolve) => {
+        const reqId = lspRequestID++;
+
+        ResponseQueue[reqId] = (textEdit: lsp.TextEdit | null) => {
+            resolve(textEdit);
+        };
+
+        server?.postMessage({
+            jsonrpc: '2.0',
+            id: reqId,
+            method: 'workspace/executeCommand',
+            params: {
+                command: 'pdf.insertXRefTable',
+                arguments: [],
+            } as lsp.ExecuteCommandParams,
+        } as lsp.RequestMessage);
+    });
 }

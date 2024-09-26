@@ -1,6 +1,6 @@
 import { ParserRuleContext, TerminalNode } from 'antlr4';
 import * as lsp from 'vscode-languageserver-protocol';
-import { NameContext, ObjectContext } from './antlr/dist/PDFParser';
+import { NameContext, ObjectContext, StartContext } from './antlr/dist/PDFParser';
 import { DictType } from '@/tools/dictTyping';
 
 export interface RuleIndex extends ParserRuleContext {
@@ -62,7 +62,7 @@ export interface LocIndex extends lsp.Location {
 
 export type ParseResult = {
     source: string;
-    tree: ParserRuleContext;
+    tree: StartContext;
     diagnostic: lsp.Diagnostic[];
     references: IndirectRefLocations;
     definitions: IndirectDefLocations;

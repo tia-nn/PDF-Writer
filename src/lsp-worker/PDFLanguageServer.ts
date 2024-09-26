@@ -1,6 +1,6 @@
 import { ParseResult, Scope, IndirectDefLocations, IndirectRefLocations } from "./types";
 import * as lsp from "vscode-languageserver-protocol";
-import { BasePDFParserListener } from "./listener/BasePDFParserListener";
+import { BasePDFParserListener, N } from "./listener/BasePDFParserListener";
 import { DiagnosticParser } from "./listener/Diagnostic";
 import { StreamParser } from "./listener/Stream";
 import { IndirectParser } from "./listener/Indirect";
@@ -8,6 +8,8 @@ import { ParseTreeWalker } from "antlr4";
 import { ScopeDetector } from "./listener/ScopeDetector";
 import { DictKeyDetector } from "./listener/DictKeyDetector";
 import { DictDefinitions } from "@/tools/dictTyping";
+import { XrefContext } from "./antlr/dist/PDFParser";
+import { TokenWithEndPos } from "./antlr/lib";
 
 
 export class PDFLanguageServer {
@@ -100,20 +102,43 @@ export class PDFLanguageServer {
 
     async codeLens(params: lsp.CodeLensParams): Promise<lsp.CodeLens[]> {
         return await this.parsing?.then((result) => {
-            return result.streams.map((stream) => ({
+            const ret = result.streams.map((stream) => ({
                 range: stream.range,
                 command: {
                     title: "Upload File",
                     command: "pdf.uploadFile",
                     arguments: [stream],
                 },
-            }));
+            } as lsp.CodeLens));
+            const xref = result.tree.xref();
+            if (xref) {
+                ret.push({
+                    range: {
+                        start: {
+                            line: xref.start.line - 1,
+                            character: xref.start.column,
+                        },
+                        end: {
+                            line: (xref.stop as TokenWithEndPos).endLine - 1,
+                            character: (xref.stop as TokenWithEndPos).endColumn,
+                        },
+                    },
+                    command: {
+                        title: "Insert XRef Table",
+                        command: "pdf.insertXRefTable",
+                        arguments: [],
+                    },
+                });
+            }
+            return ret;
         }) || [];
     }
 
     async executeCommand(params: lsp.ExecuteCommandParams): Promise<any> {
         if (params.command === "pdf.encodeTextString") {
             return await this.commandEncodeTextString(params.arguments || {});
+        } else if (params.command === "pdf.insertXRefTable") {
+            return await this.commandInsertXRefTable(params.arguments || {});
         } else if (params.command === "pdf.getScope") {
             return await this.commandGetScope(...(params.arguments as [lsp.Position]));
         } else {
@@ -122,12 +147,65 @@ export class PDFLanguageServer {
     }
 
     async commandGetScope(position: lsp.Position): Promise<{ scope: Scope | null }> {
-        console.log("getScope");
         return await this.parsing?.then((result) => {
             const s = new ScopeDetector(position);
             ParseTreeWalker.DEFAULT.walk(s, result.tree);
             return { scope: s.result() };
         }) || { scope: null };
+    }
+
+    async commandInsertXRefTable({ }: {}): Promise<lsp.TextEdit | null> {
+        return await this.parsing?.then((result) => {
+            const defines = result.definitions;
+            const xref = result.tree.xref() as N<XrefContext>;
+            if (!xref) {
+                return null;
+            }
+
+            const entries: (string | null)[] = [null];
+            for (let o = 0; o <= Math.max(...Object.keys(defines).map(v => parseInt(v))); o++) {
+                for (const g in defines[o]) {
+                    const def = defines[o][g];
+                    const offset = ('0000000000' + def.range.start.index).slice(-10)
+                    const generation = ('00000' + g).slice(-5)
+                    entries.push(`${offset} ${generation} n \n`);
+                }
+            }
+
+            let i = 0;
+            while (true) {
+                if (entries[i] == null) {
+                    const _next = entries.slice(i + 1).findIndex(el => el == null);
+                    const next = _next != -1 ? _next + i + 1 : -1;
+                    const g = i == 0 ? "65535" : "00000";
+                    if (next != -1) {
+                        entries[i] = `${("0000000000" + next.toString()).slice(-10)} ${g} f \n`;
+                        i = next;
+                        continue;
+                    } else {
+                        entries[i] = `0000000000 ${g} f \n`;
+                        break;
+                    }
+                }
+                i++;
+            }
+
+            const section = `xref\n0 ${entries.length}\n` + entries.join('');
+
+            return {
+                range: {
+                    start: {
+                        line: xref.start.line - 1,
+                        character: xref.start.column,
+                    },
+                    end: {
+                        line: (xref.stop as TokenWithEndPos).endLine - 1,
+                        character: (xref.stop as TokenWithEndPos).endColumn,
+                    },
+                },
+                newText: section,
+            } as lsp.TextEdit;
+        }) || null;
     }
 
     async commandEncodeTextString({ }: {}): Promise<{ buffer: SharedArrayBuffer }> {

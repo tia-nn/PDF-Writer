@@ -7,8 +7,8 @@ lexer grammar PDFLexer;
 @lexer::members {
     emit(): Token {
         const t = super.emit() as TokenWithEndPos;
-        t.endLine = (this._interp as LexerATNSimulatorWithPos).line;
-        t.endColumn = (this._interp as LexerATNSimulatorWithPos).column;
+        t.endLine = this.line;
+        t.endColumn = this.column;
         return t;
     }
 }
