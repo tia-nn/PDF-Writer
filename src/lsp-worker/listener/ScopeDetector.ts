@@ -1,12 +1,9 @@
-import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
-import { LocIndex, ParseResult, RangeIndex, RuleIndex, Scope } from "../types";
-import PDFLexer from "../antlr/dist/PDFLexer";
-import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, StreamContext, TrailerContext, XrefContext } from "../antlr/dist/PDFParser";
-import PDFParserListener from "../antlr/dist/PDFParserListener";
+import { ParserRuleContext, TerminalNode } from "antlr4";
+import { RangeIndex, RuleIndex, Scope } from "../types";
+import PDFParser, { DictionaryContext, NameContext, TrailerContext } from "../antlr/dist/PDFParser";
 import * as lsp from "vscode-languageserver-protocol";
-import { TokenWithEndPos } from "../antlr/lib";
 import { BasePDFParserListener, N } from "./BasePDFParserListener";
-import { DictType, DICT_TYPE } from '@/tools/dictTyping';
+import { DictType, DICT_TYPE, DictDefinitions } from '@/tools/dictTyping';
 
 
 export class ScopeDetector extends BasePDFParserListener {
@@ -50,6 +47,7 @@ export class ScopeDetector extends BasePDFParserListener {
 
         const names: string[] = [];
         let dictType: DictType = this.inTrailer ? "trailer" : "unknown";
+        let dictSubType: string | null = null;
         for (const entry of entries) {
             const name = entry.name() as N<NameContext>;
             const value = entry.object();
@@ -67,8 +65,18 @@ export class ScopeDetector extends BasePDFParserListener {
                     dictType = valueStr as DictType;
                 }
             }
+            if (dictSubType === null && nameStr === "/Subtype" && valueIsName) {
+                dictSubType = this.parseName(value.getChild(0) as NameContext);
+            }
         }
 
+        if (dictType !== "unknown" && dictSubType !== null) {
+            const definition = DictDefinitions[dictType];
+            const subtypeEnum = definition["/Subtype"]?.enum;
+            if (subtypeEnum && Object.keys(subtypeEnum).includes(dictSubType)) {
+                dictType = dictType + "-" + dictSubType as DictType;
+            }
+        }
 
         let lastToken: ParserRuleContext | TerminalNode = open;
         let missingLastValue: boolean = false

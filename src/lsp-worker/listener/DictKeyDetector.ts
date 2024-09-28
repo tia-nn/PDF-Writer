@@ -1,12 +1,8 @@
-import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
-import { DictTokenType, LocIndex, ParseResult, RangeIndex, RuleIndex, Scope } from "../types";
-import PDFLexer from "../antlr/dist/PDFLexer";
-import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, StreamContext, TrailerContext, XrefContext } from "../antlr/dist/PDFParser";
-import PDFParserListener from "../antlr/dist/PDFParserListener";
+import { DictTokenType, RuleIndex } from "../types";
+import PDFParser, { DictionaryContext, NameContext, ObjectContext, TrailerContext } from "../antlr/dist/PDFParser";
 import * as lsp from "vscode-languageserver-protocol";
-import { TokenWithEndPos } from "../antlr/lib";
 import { BasePDFParserListener, N } from "./BasePDFParserListener";
-import { DictType, DICT_TYPE } from '@/tools/dictTyping';
+import { DictType, DICT_TYPE, DictDefinitions } from '@/tools/dictTyping';
 
 
 export class DictKeyDetector extends BasePDFParserListener {
@@ -34,6 +30,7 @@ export class DictKeyDetector extends BasePDFParserListener {
         const entries = ctx.dictionary_entry_list();
 
         let dictType: DictType = this.inTrailer ? "trailer" : "unknown";
+        let dictSubType: string | null = null;
         let inRangeKey: string | null = null;
         let inRangeValueName: { key: string, value: string } | null = null;
         for (const entry of entries) {
@@ -67,6 +64,9 @@ export class DictKeyDetector extends BasePDFParserListener {
                     dictType = valueStr as DictType;
                 }
             }
+            if (dictSubType === null && nameStr === "/Subtype" && valueIsName) {
+                dictSubType = this.parseName(valueChild as NameContext);
+            }
 
             if (inRangeKey || inRangeValueName) continue;
 
@@ -81,6 +81,15 @@ export class DictKeyDetector extends BasePDFParserListener {
                 };
             }
         }
+
+        if (dictType !== "unknown" && dictSubType !== null) {
+            const definition = DictDefinitions[dictType];
+            const subtypeEnum = definition["/Subtype"]?.enum;
+            if (subtypeEnum && Object.keys(subtypeEnum).includes(dictSubType)) {
+                dictType = dictType + "-" + dictSubType as DictType;
+            }
+        }
+
         if (inRangeKey) {
             this.key = {
                 type: "dict-key",
