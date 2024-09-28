@@ -1,5 +1,5 @@
 import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
-import { DictKeyType, LocIndex, ParseResult, RangeIndex, RuleIndex, Scope } from "../types";
+import { DictTokenType, LocIndex, ParseResult, RangeIndex, RuleIndex, Scope } from "../types";
 import PDFLexer from "../antlr/dist/PDFLexer";
 import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, HeaderContext, Indirect_objContext, Indirect_refContext, IntegerContext, Invalid_codeContext, NameContext, ObjectContext, StartContext, StartxrefContext, StreamContext, TrailerContext, XrefContext } from "../antlr/dist/PDFParser";
 import PDFParserListener from "../antlr/dist/PDFParserListener";
@@ -10,7 +10,7 @@ import { DictType, DICT_TYPE } from '@/tools/dictTyping';
 
 
 export class DictKeyDetector extends BasePDFParserListener {
-    key: DictKeyType | null = null;
+    key: DictTokenType | null = null;
     inTrailer: boolean = false;
     position: lsp.Position;
 
@@ -19,7 +19,7 @@ export class DictKeyDetector extends BasePDFParserListener {
         this.position = position;
     }
 
-    public result(): DictKeyType | null {
+    public result(): DictTokenType | null {
         return this.key;
     }
 
@@ -35,30 +35,64 @@ export class DictKeyDetector extends BasePDFParserListener {
 
         let dictType: DictType = this.inTrailer ? "trailer" : "unknown";
         let inRangeKey: string | null = null;
+        let inRangeValueName: { key: string, value: string } | null = null;
         for (const entry of entries) {
-            const nameOrNull = entry.name() as N<NameContext>;
-            const value = entry.object().getChild(0) as RuleIndex;
-            const valueIsName = value.ruleIndex === PDFParser.RULE_name;
+            const nameRule = entry.name();
+            const valueRule = entry.object();
+            const valueChild = valueRule.getChild(0) as RuleIndex;
+            let name: N<NameContext> = null;
+            let value: N<ObjectContext | NameContext> = null;
+            let valueIsName = false;
+
+            if (nameRule) {
+                name = nameRule as N<NameContext>;
+                value = valueRule;
+                valueIsName = valueChild.ruleIndex === PDFParser.RULE_name;
+            } else if (valueChild.ruleIndex === PDFParser.RULE_name) {
+                name = valueChild as NameContext;
+                value = null;
+                valueIsName = false;
+            } else {
+                name = null;
+                value = valueRule;
+                valueIsName = valueChild.ruleIndex === PDFParser.RULE_name;
+            }
+
+            const nameStr = name ? this.parseName(name) : null;
 
             // /Type がある場合は dictType を決定
-            const nameStr = nameOrNull && this.parseName(nameOrNull);
             if (dictType === "unknown" && nameStr === "/Type" && valueIsName) {
-                const valueStr = this.parseName(value as NameContext);
+                const valueStr = this.parseName(valueChild as NameContext);
                 if ((DICT_TYPE as ReadonlyArray<string>).includes(valueStr)) {
                     dictType = valueStr as DictType;
                 }
             }
 
+            if (inRangeKey || inRangeValueName) continue;
+
             // 現在位置が name の範囲内なら key として記録
-            const name = nameOrNull || (valueIsName ? value as NameContext : null);
             if (name && this.isInRange(this.range(name), this.position)) {
                 inRangeKey = this.parseName(name);
+            }
+            else if (name && value && valueIsName && this.isInRange(this.range(value), this.position)) {
+                inRangeValueName = {
+                    key: this.parseName(name),
+                    value: this.parseName(valueChild as NameContext)
+                };
             }
         }
         if (inRangeKey) {
             this.key = {
+                type: "dict-key",
                 dictType: dictType,
                 key: inRangeKey,
+            }
+        } else if (inRangeValueName) {
+            this.key = {
+                type: "dict-value",
+                dictType: dictType,
+                key: inRangeValueName.key,
+                valueName: inRangeValueName.value,
             }
         }
     };

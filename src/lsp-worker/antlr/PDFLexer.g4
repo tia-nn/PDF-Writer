@@ -11,24 +11,20 @@ lexer grammar PDFLexer;
         t.endColumn = this.column;
         return t;
     }
+
+	lastEmptyTokenAction() {
+		throw new Error("Method not implemented.");
+	}
 }
 
 /* --- HEADER part (DEFAULT_MODE) --- */
 
 H_PDF: '%PDF-' [12][.][0-9] (EOL_MARKER | EOF);
-H_COMMENT: '%' ~[\n\r]* (EOL_MARKER | EOF);
+H_COMMENT: '%' ~[\n\r]+ (EOL_MARKER | EOF);
 
 // コメント以外の入力はロールバックしてから BODY_MODE に入って rematch する
 H_END:
-	(. | EOF) {
-        const i = this._input.index
-        this._input.seek(i - 1);
-        if (this._input.LA(1) === 0x0A) {
-            this.line--;                         // 改行があった場合、行を1つ戻す
-        } else {
-            this.column--;                       // 改行がなければ列を1つ戻す
-        }
-    } -> mode(BODY_MODE);
+	(. | EOF) { this.lastEmptyTokenAction(); } -> mode(BODY_MODE);
 
 /* --- BODY part --- */ mode BODY_MODE;
 
@@ -101,16 +97,7 @@ NAME_CONTENT: ~[\u0000\t\f \r\n()<>[\]{}/%#]+;
 NAME_ESC: '#' [0-9a-fA-F][0-9a-fA-F];
 NAME_INV_ESC: '#' [0-9a-fA-F]?;
 // 入力をロールバックしてから popMode して rematch する
-NAME_END:
-	(. | EOF) {
-        const i = this._input.index
-        this._input.seek(i - 1);
-        if (this._input.LA(1) === 0x0A) {
-            this.line--;                         // 改行があった場合、行を1つ戻す
-        } else {
-            this.column--;                       // 改行がなければ列を1つ戻す
-        }
-    } -> popMode;
+NAME_END: (. | EOF) { this.lastEmptyTokenAction(); } -> popMode;
 
 mode STREAM_MODE;
 // stream の詳細な文法は別で手書き処理する

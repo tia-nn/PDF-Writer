@@ -58,7 +58,6 @@ export function completionDict(model: monaco.editor.ITextModel, position: monaco
         : new monaco.Range(position.lineNumber, position.column - rollbackRange, position.lineNumber, position.column);
 
     if (scope.kind === 'dict-key') {
-        console.log("dict-key", scope)
         const keys = Object.keys(DictDefinitions[scope.dictType]).filter(item => !scope.have.includes(item));
         ret.push(...keys.map(item => ({
             label: item,
@@ -69,7 +68,7 @@ export function completionDict(model: monaco.editor.ITextModel, position: monaco
     } else if (scope.kind === 'dict-value') {
         const keys = DictDefinitions[scope.dictType][scope.key];
         if (keys && keys.enum) {
-            ret.push(...keys.enum.map(item => ({
+            ret.push(...Object.keys(keys.enum).map(item => ({
                 label: item,
                 kind: monaco.languages.CompletionItemKind.Variable,
                 insertText: item,

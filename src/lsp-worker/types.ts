@@ -27,9 +27,15 @@ export type Scope =
         dictType: DictType;
     }
 
-export type DictKeyType = {
+export type DictTokenType = {
+    type: 'dict-key';
     dictType: DictType;
     key: string;
+} | {
+    type: 'dict-value';
+    dictType: DictType;
+    key: string;
+    valueName: string;
 }
 
 export type DictNode = {

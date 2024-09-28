@@ -110,7 +110,6 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
                 commandGetScope(position).then(scope => {
                     scope && ret.push(...completionDict(model, position, context, scope));
 
-                    console.log(ret);
                     resolve({
                         suggestions: ret,
                     });

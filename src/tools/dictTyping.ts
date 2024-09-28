@@ -1,5 +1,6 @@
-export const DICT_TYPE = ['unknown', 'trailer', '/Catalog'] as const;
-export type DictType = typeof DICT_TYPE[number];
+export const DICT_TYPE = ['/Catalog'] as const;
+export type DictType = typeof DICT_TYPE[number] | 'unknown' | 'trailer';
+export type TypeFields = typeof DICT_TYPE[number];
 
 type PDFObjectType = "Dictionary" | "Array" | "Name" | "String" | "Number" | "Boolean" | "Null" | "Stream" | "IndirectObjectReference";
 type PDFObjectDefinition = {
@@ -8,7 +9,7 @@ type PDFObjectDefinition = {
         isRequired?: true,
         beIndirect?: true,
         type: PDFObjectType,
-        enum?: string[],
+        enum?: { [key: string]: string },
     } | undefined
 }
 
@@ -17,7 +18,13 @@ const UnknownDefinition: PDFObjectDefinition = {
         description: "この辞書の種類",
         isRequired: true,
         type: "Name",
-        enum: ["/Catalog", "/Pages", "/Page", "/Font"]
+        // TODO: 翻訳・充実
+        enum: {
+            "/Catalog": "The Catalog is a dictionary that is the root node of the document. It contains a reference to the tree of pages contained in the document, and a reference to the tree of objects representing the document’s outline. In addition, the Catalog indicates whether the document’s outline or thumbnail page images should be displayed automatically when the document is viewed.",
+            "/Pages": "ページツリーのルート",
+            "/Page": "ページ",
+            "/Font": "フォント"
+        }
     }
 }
 
@@ -48,7 +55,8 @@ const CatalogDefinition: PDFObjectDefinition = {
     "/Type": {
         description: "この辞書の種類",
         isRequired: true,
-        type: "Name"
+        type: "Name",
+        enum: { "/Catalog": UnknownDefinition["/Type"]?.enum?.["/Catalog"] || "" }
     },
     "/Pages": {
         description: "この文書の Pages Tree のルート Pages オブジェクト",
@@ -64,7 +72,12 @@ const CatalogDefinition: PDFObjectDefinition = {
     "/PageMode": {
         description: "ドキュメントを開いたときにどう表示されるか\ndefault: /UseNone",
         type: "Name",
-        enum: ["/UseNone", "/UseOutlines", "/UseThumbs"]
+        // TODO: 翻訳
+        enum: {
+            "/UseNone": "Open document with neither outline nor thumbnails visible",
+            "/UseOutlines": "Open document with outline visible",
+            "/UseThumbs": "Open document with thumbnails visible"
+        }
     },
 }
 

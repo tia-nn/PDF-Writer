@@ -5,6 +5,7 @@ import PDFParser, { IntegerContext, NameContext, NumberContext, RealContext, Sta
 import PDFParserListener from "../antlr/dist/PDFParserListener";
 import * as lsp from "vscode-languageserver-protocol";
 import { TokenWithEndPos } from "../antlr/lib";
+import { PDFLexerEx } from "../antlr/PDFLexerEX";
 
 export type Nullish<T> = T | null | undefined;
 export type N<T> = Nullish<T>;
@@ -131,7 +132,7 @@ export class BasePDFParserListener extends PDFParserListener {
 
     public static parse(source: string, listeners: BasePDFParserListener[]): StartContext {
         const chars = antlr4.CharStreams.fromString(source);
-        const lexer = new PDFLexer(chars);
+        const lexer = new PDFLexerEx(chars);
 
         const tokens = new antlr4.CommonTokenStream(lexer);
         const parser = new PDFParser(tokens);

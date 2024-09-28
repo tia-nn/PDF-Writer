@@ -84,15 +84,31 @@ export class PDFLanguageServer {
             ParseTreeWalker.DEFAULT.walk(keyDetector, result.tree);
             const key = keyDetector.result();
             if (key) {
-                return {
-                    contents: {
-                        kind: lsp.MarkupKind.Markdown,
-                        value: [
-                            `\`${key.key}\``,
-                            ``,
-                            `${DictDefinitions[key.dictType][key.key]?.description || "No description"}`,
-                        ].join("\n"),
-                    },
+                if (key.type === "dict-key") {
+                    return {
+                        contents: {
+                            kind: lsp.MarkupKind.Markdown,
+                            value: [
+                                `\`${key.key}\``,
+                                ``,
+                                `${DictDefinitions[key.dictType][key.key]?.description || "No description"}`,
+                            ].join("\n"),
+                        },
+                    }
+                } else {
+                    const desc = DictDefinitions[key.dictType][key.key]?.enum?.[key.valueName];
+                    if (desc !== undefined) {
+                        return {
+                            contents: {
+                                kind: lsp.MarkupKind.Markdown,
+                                value: [
+                                    `\`${key.key}\` - \`${key.valueName}\``,
+                                    ``,
+                                    `${desc}`,
+                                ].join("\n"),
+                            },
+                        }
+                    }
                 }
             } else {
                 return null;
