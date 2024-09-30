@@ -4,12 +4,12 @@ import { BasePDFParserListener, N } from "./listener/BasePDFParserListener";
 import { DiagnosticParser } from "./listener/Diagnostic";
 import { StreamParser } from "./listener/Stream";
 import { IndirectParser } from "./listener/Indirect";
-import { ParseTreeWalker } from "antlr4";
-import { ScopeDetector } from "./listener/ScopeDetector";
-import { DictKeyDetector } from "./listener/DictKeyDetector";
+import { ScopeDetector } from "./dict/ScopeDetector";
+import { DictKeyDetector } from "./dict/DictKeyDetector";
 import { DictDefinitions } from "@/tools/dictTyping";
 import { XrefContext } from "./antlr/dist/PDFParser";
 import { TokenWithEndPos } from "./antlr/lib";
+import { DictParser } from "./listener/DictParser";
 
 
 export class PDFLanguageServer {
@@ -80,9 +80,7 @@ export class PDFLanguageServer {
 
     async hover(params: lsp.HoverParams): Promise<lsp.Hover | null> {
         return await this.parsing?.then((result) => {
-            const keyDetector = new DictKeyDetector(params.position);
-            ParseTreeWalker.DEFAULT.walk(keyDetector, result.tree);
-            const key = keyDetector.result();
+            const key = DictKeyDetector.getDictNameElement(result.dictionaries, params.position);
             if (key) {
                 if (key.type === "dict-key") {
                     return {
@@ -164,9 +162,7 @@ export class PDFLanguageServer {
 
     async commandGetScope(position: lsp.Position): Promise<{ scope: Scope | null }> {
         return await this.parsing?.then((result) => {
-            const s = new ScopeDetector(position);
-            ParseTreeWalker.DEFAULT.walk(s, result.tree);
-            return { scope: s.result() };
+            return { scope: ScopeDetector.getScope(result.dictionaries, position) };
         }) || { scope: null };
     }
 
@@ -298,7 +294,8 @@ export class PDFLanguageServer {
             const diagnosticParser = new DiagnosticParser();
             const streamParser = new StreamParser();
             const indirectParser = new IndirectParser();
-            const start = BasePDFParserListener.parse(s, [diagnosticParser, streamParser, indirectParser]);
+            const dictParser = new DictParser();
+            const start = BasePDFParserListener.parse(s, [diagnosticParser, streamParser, indirectParser, dictParser]);
             const i = indirectParser.result();
             resolve({
                 source: s,
@@ -307,6 +304,7 @@ export class PDFLanguageServer {
                 references: i.reference,
                 definitions: i.definition,
                 streams: streamParser.result(),
+                dictionaries: dictParser.result(),
             });
         });
     }

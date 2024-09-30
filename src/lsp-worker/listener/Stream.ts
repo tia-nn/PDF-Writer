@@ -1,4 +1,4 @@
-import { BasePDFParserListener } from "./BasePDFParserListener";
+import { BasePDFParserListener, TreeTools } from "./BasePDFParserListener";
 import { StreamContext } from "../antlr/dist/PDFParser";
 import { LocIndex } from "../types";
 
@@ -12,7 +12,7 @@ export class StreamParser extends BasePDFParserListener {
     exitStream?: ((ctx: StreamContext) => void) = (ctx) => {
         this.streams.push({
             uri: "file://main.pdf",
-            range: this.range(ctx),
+            range: TreeTools.range(ctx),
         });
     };
 }

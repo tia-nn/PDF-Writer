@@ -97,17 +97,14 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
         provideCompletionItems: (model, position, context, token) => {
             return new Promise(resolve => {
                 const ret: languages.CompletionItem[] = [];
-                const wordAt = model.getWordAtPosition(position);
-                const leadChar = model.getValueInRange(new monaco.Range(position.lineNumber, position.column - 1, position.lineNumber, position.column));
-
-                let backColumn = leadChar === '/' ? - 1 : 0;
-                const range = wordAt
-                    ? new monaco.Range(position.lineNumber, wordAt.startColumn + backColumn, position.lineNumber, wordAt.endColumn)
-                    : new monaco.Range(position.lineNumber, position.column + backColumn, position.lineNumber, position.column);
 
                 ret.push(...completionComments(model, position, context));
 
-                commandGetScope(position).then(scope => {
+                const shiftedPosition = {
+                    lineNumber: position.lineNumber,
+                    column: position.column - 1,
+                };
+                commandGetScope(shiftedPosition).then(scope => {
                     scope && ret.push(...completionDict(model, position, context, scope));
 
                     resolve({

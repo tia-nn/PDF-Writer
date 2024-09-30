@@ -1,19 +1,30 @@
 import antlr4, { ParserRuleContext, TerminalNode } from "antlr4";
 import { RangeIndex } from "../types";
-import PDFLexer from "../antlr/dist/PDFLexer";
 import PDFParser, { IntegerContext, NameContext, NumberContext, RealContext, StartContext } from "../antlr/dist/PDFParser";
 import PDFParserListener from "../antlr/dist/PDFParserListener";
-import * as lsp from "vscode-languageserver-protocol";
 import { TokenWithEndPos } from "../antlr/lib";
 import { PDFLexerEx } from "../antlr/PDFLexerEX";
 
 export type Nullish<T> = T | null | undefined;
 export type N<T> = Nullish<T>;
 
-type Positional = ParserRuleContext | TerminalNode;
+export type Positional = ParserRuleContext | TerminalNode;
 
 export class BasePDFParserListener extends PDFParserListener {
-    parseNumber(n: NumberContext): number {
+    public static parse(source: string, listeners: BasePDFParserListener[]): StartContext {
+        const chars = antlr4.CharStreams.fromString(source);
+        const lexer = new PDFLexerEx(chars);
+
+        const tokens = new antlr4.CommonTokenStream(lexer);
+        const parser = new PDFParser(tokens);
+        listeners.forEach(listener => parser.addParseListener(listener));
+
+        return parser.start();
+    }
+}
+
+export class TreeTools {
+    public static parseNumber(n: NumberContext): number {
         if (n.integer() !== null) {
             return this.parseInteger(n.integer());
         } else {
@@ -21,20 +32,20 @@ export class BasePDFParserListener extends PDFParserListener {
         }
     }
 
-    parseInteger(n: IntegerContext): number {
+    public static parseInteger(n: IntegerContext): number {
         return parseInt(n.getText(), 10);
     }
 
-    parseReal(n: RealContext): number {
+    public static parseReal(n: RealContext): number {
         return parseFloat(n.getText());
     }
 
-    parseName(n: NameContext): string {
+    public static parseName(n: NameContext): string {
         // TODO: escape 解釈
         return n.getText();
     }
 
-    headRange(ctx: Positional): RangeIndex {
+    public static headRange(ctx: Positional): RangeIndex {
         const t = this.token(ctx);
         return {
             start: {
@@ -50,7 +61,7 @@ export class BasePDFParserListener extends PDFParserListener {
         }
     }
 
-    tailRange(ctx: Positional): RangeIndex {
+    public static tailRange(ctx: Positional): RangeIndex {
         const t = this.token(ctx);
         return {
             start: {
@@ -66,7 +77,7 @@ export class BasePDFParserListener extends PDFParserListener {
         }
     }
 
-    betweenRange(
+    public static betweenRange(
         ctx1: Positional,
         ctx2: Positional,
         includeStart: boolean = true,
@@ -96,11 +107,11 @@ export class BasePDFParserListener extends PDFParserListener {
         }
     }
 
-    betweenRangeExclude(ctx1: Positional, ctx2: Positional): RangeIndex {
+    public static betweenRangeExclude(ctx1: Positional, ctx2: Positional): RangeIndex {
         return this.betweenRange(ctx1, ctx2, false, false);
     }
 
-    range(ctx: Positional): RangeIndex {
+    public static range(ctx: Positional): RangeIndex {
         const t = this.token(ctx);
         return {
             start: {
@@ -116,7 +127,7 @@ export class BasePDFParserListener extends PDFParserListener {
         };
     }
 
-    token(n: ParserRuleContext | TerminalNode) {
+    public static token(n: ParserRuleContext | TerminalNode) {
         if (n instanceof TerminalNode) {
             return {
                 start: n.symbol as TokenWithEndPos,
@@ -128,16 +139,5 @@ export class BasePDFParserListener extends PDFParserListener {
                 stop: (n.stop || n.start) as TokenWithEndPos,
             }
         }
-    }
-
-    public static parse(source: string, listeners: BasePDFParserListener[]): StartContext {
-        const chars = antlr4.CharStreams.fromString(source);
-        const lexer = new PDFLexerEx(chars);
-
-        const tokens = new antlr4.CommonTokenStream(lexer);
-        const parser = new PDFParser(tokens);
-        listeners.forEach(listener => parser.addParseListener(listener));
-
-        return parser.start();
     }
 }

@@ -5,7 +5,7 @@ import PDFParser, { BodyContext, DictionaryContext, Dictionary_entryContext, Hea
 import PDFParserListener from "../antlr/dist/PDFParserListener";
 import * as lsp from "vscode-languageserver-protocol";
 import { TokenWithEndPos } from "../antlr/lib";
-import { BasePDFParserListener, N } from "./BasePDFParserListener";
+import { BasePDFParserListener, N, TreeTools } from "./BasePDFParserListener";
 
 export class DiagnosticParser extends BasePDFParserListener {
     diagnostic: lsp.Diagnostic[] = [];
@@ -27,7 +27,7 @@ export class DiagnosticParser extends BasePDFParserListener {
         const header = ctx.H_PDF();
         if (header === null) {
             this.diagnostic.push({
-                range: this.headRange(ctx),
+                range: TreeTools.headRange(ctx),
                 message: "PDF must start with %PDF-{version}",
                 severity: lsp.DiagnosticSeverity.Error,
             });
@@ -41,7 +41,7 @@ export class DiagnosticParser extends BasePDFParserListener {
             const entity = object.getChild(0) as RuleIndex;
             if (entity.ruleIndex !== PDFParser.RULE_indirect_obj && entity.ruleIndex !== PDFParser.RULE_invalid_code) {
                 this.diagnostic.push({
-                    range: this.range(entity),
+                    range: TreeTools.range(entity),
                     message: "root object shall be indirect object",
                     severity: lsp.DiagnosticSeverity.Warning,
                 });
@@ -64,7 +64,7 @@ export class DiagnosticParser extends BasePDFParserListener {
                 if ((value.getChild(0) as RuleIndex).ruleIndex === PDFParser.RULE_name) {
                     // value がない（value の中身が name の）場合
                     // 最後のエントリでしか発生し得ない
-                    const range = close ? this.betweenRange(lastToken, close, false, false) : this.tailRange(value);
+                    const range = close ? TreeTools.betweenRange(lastToken, close, false, false) : TreeTools.tailRange(value);
                     if (close) {
                         this.diagnostic.push({
                             range: range,
@@ -75,7 +75,7 @@ export class DiagnosticParser extends BasePDFParserListener {
                 } else {
                     // name がない場合
                     this.diagnostic.push({
-                        range: this.betweenRange(lastToken, value, false, false),
+                        range: TreeTools.betweenRange(lastToken, value, false, false),
                         message: "dictionary entry must have name",
                         severity: lsp.DiagnosticSeverity.Error,
                     });
@@ -87,7 +87,7 @@ export class DiagnosticParser extends BasePDFParserListener {
 
         if (!close) {
             this.diagnostic.push({
-                range: this.tailRange(ctx),
+                range: TreeTools.tailRange(ctx),
                 message: "dictionary must be closed",
                 severity: lsp.DiagnosticSeverity.Error,
             });
@@ -96,7 +96,7 @@ export class DiagnosticParser extends BasePDFParserListener {
 
     exitInvalid_code: ((ctx: Invalid_codeContext) => void) = (ctx) => {
         this.diagnostic.push({
-            range: this.range(ctx),
+            range: TreeTools.range(ctx),
             message: "invalid code",
             severity: lsp.DiagnosticSeverity.Error,
         });
@@ -104,7 +104,7 @@ export class DiagnosticParser extends BasePDFParserListener {
 
     exitXref_invalid: ((ctx: Xref_invalidContext) => void) = (ctx) => {
         this.diagnostic.push({
-            range: this.range(ctx),
+            range: TreeTools.range(ctx),
             message: "invalid code",
             severity: lsp.DiagnosticSeverity.Error,
         });
@@ -112,7 +112,7 @@ export class DiagnosticParser extends BasePDFParserListener {
 
     exitStartxref_invalid?: ((ctx: Startxref_invalidContext) => void) = (ctx) => {
         this.diagnostic.push({
-            range: this.range(ctx),
+            range: TreeTools.range(ctx),
             message: "invalid code",
             severity: lsp.DiagnosticSeverity.Error,
         });

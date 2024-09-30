@@ -53,7 +53,7 @@ export function completionDict(model: monaco.editor.ITextModel, position: monaco
     const wordAt = model.getWordAtPosition(position);
     const leadChar = model.getValueInRange(new monaco.Range(position.lineNumber, position.column - 1, position.lineNumber, position.column));
     const rollbackRange = leadChar === '/' ? 1 : 0;
-    let range = wordAt
+    let range = wordAt // TODO: range がうまいこといってなさそう
         ? new monaco.Range(position.lineNumber, wordAt.startColumn - rollbackRange, position.lineNumber, wordAt.endColumn)
         : new monaco.Range(position.lineNumber, position.column - rollbackRange, position.lineNumber, position.column);
 

@@ -39,13 +39,14 @@ export type DictTokenType = {
 }
 
 export type DictNode = {
-    entries: DictEntry[];
+    entries: DictEntryNode[];
     open: TerminalNode;
     close?: TerminalNode;
     range: lsp.Range;
+    type: DictType;
 }
 
-export type DictEntry = {
+export type DictEntryNode = {
     name?: NameContext;
     value?: ObjectContext;
 }
@@ -73,4 +74,5 @@ export type ParseResult = {
     references: IndirectRefLocations;
     definitions: IndirectDefLocations;
     streams: LocIndex[];
+    dictionaries: DictNode[];
 }
