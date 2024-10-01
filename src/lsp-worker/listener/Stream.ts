@@ -10,9 +10,10 @@ export class StreamParser extends BasePDFParserListener {
     }
 
     exitStream?: ((ctx: StreamContext) => void) = (ctx) => {
+        const stream = ctx.STREAM();
         this.streams.push({
             uri: "file://main.pdf",
-            range: TreeTools.range(ctx),
+            range: TreeTools.range(stream),
         });
     };
 }

@@ -21,8 +21,8 @@ object:
 	| string
 	| name
 	| array
-	| dictionary
 	| stream
+	| dictionary
 	| invalid_code;
 
 // null
@@ -58,7 +58,7 @@ dictionary: DICT_OPEN dictionary_entry* DICT_CLOSE?;
 dictionary_entry: name? object;
 
 // streams
-stream: STREAM;
+stream: dictionary? STREAM;
 
 // objects
 indirect_obj: obj_id object* stream? K_ENDOBJ?;

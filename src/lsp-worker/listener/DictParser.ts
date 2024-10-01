@@ -1,22 +1,27 @@
 import { DictEntryNode, DictNode, DictTokenType, RuleIndex } from "../types";
-import PDFParser, { DictionaryContext, NameContext, ObjectContext, TrailerContext } from "../antlr/dist/PDFParser";
+import PDFParser, { DictionaryContext, NameContext, ObjectContext, StreamContext, TrailerContext } from "../antlr/dist/PDFParser";
 import { BasePDFParserListener, N, TreeTools } from "./BasePDFParserListener";
 import { DictType, DICT_TYPE, DictDefinitions } from '@/tools/dictTyping';
 
 
 export class DictParser extends BasePDFParserListener {
     inTrailer: boolean = false;
+    inStream: boolean = false;
     dictionaries: DictNode[] = [];
 
     public result(): DictNode[] {
         return this.dictionaries;
     }
 
-    exitDictionary?: ((ctx: DictionaryContext) => void) = (ctx) => {
+    exitDictionary: ((ctx: DictionaryContext) => void) = (ctx) => {
         const entries = ctx.dictionary_entry_list();
 
         const entiresNode: DictEntryNode[] = [];
-        let dictType: DictType = this.inTrailer ? "trailer" : "unknown";
+        let dictType: DictType =
+            this.inTrailer ? "trailer"
+                : this.inStream
+                    ? "stream"
+                    : "unknown";
         let dictSubType: string | null = null;
         for (const entry of entries) {
             const nameRule = entry.name();
@@ -77,7 +82,15 @@ export class DictParser extends BasePDFParserListener {
         this.inTrailer = true;
     };
 
-    exitTrailer?: ((ctx: TrailerContext) => void) = (ctx) => {
+    exitTrailer: ((ctx: TrailerContext) => void) = (ctx) => {
         this.inTrailer = false;
     };
+
+    enterStream: ((ctx: StreamContext) => void) = (ctx) => {
+        this.inStream = true;
+    }
+
+    exitStream: ((ctx: StreamContext) => void) = (ctx) => {
+        this.inStream = false;
+    }
 }

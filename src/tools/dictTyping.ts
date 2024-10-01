@@ -3,7 +3,7 @@
  */
 
 export const DICT_TYPE = ['/Catalog', '/Pages', '/Page', '/Annot'] as const;
-export type DictType = typeof DICT_TYPE[number] | 'unknown' | 'trailer' | '/Annot-/Text' | '/Annot-/Link';
+export type DictType = typeof DICT_TYPE[number] | 'unknown' | 'trailer' | 'stream' | '/Annot-/Text' | '/Annot-/Link';
 export type TypeFields = typeof DICT_TYPE[number];
 
 export enum PDFObjectType {
@@ -46,6 +46,30 @@ const TrailerDefinition: PDFObjectDefinition = {
     "/Info": {
         description: "この文書の情報",
         type: PDFObjectType.Indirect,
+    },
+}
+
+const StreamDefinition: PDFObjectDefinition = {
+    "/Length": {
+        description: "ストリームのバイト数",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/Filter": {
+        description: "ストリームの圧縮方法",
+        type: PDFObjectType.Array,
+        enum: {
+            "/ASCIIHexDecode": "ASCII-hex 圧縮",
+            "/ASCII85Decode": "base85 圧縮",
+            "/LZWDecode": "LZW 圧縮",
+            "/RunLengthDecode": "ランレングス圧縮",
+            "/CCITTFaxDecode": "CCITT Group 3 または Group 4 圧縮",
+            "/DCTDecode": "JPEG 圧縮",
+        }
+    },
+    "/DecodeParms": {
+        description: "圧縮方法のパラメータ",
+        type: PDFObjectType.Array,
     },
 }
 
@@ -239,6 +263,7 @@ const UnknownDefinition: PDFObjectDefinition = {
 export const DictDefinitions: { [key in DictType]: PDFObjectDefinition } = {
     "unknown": UnknownDefinition,
     "trailer": TrailerDefinition,
+    "stream": StreamDefinition,
     "/Catalog": CatalogDefinition,
     "/Pages": PagesDefinition,
     "/Page": PageDefinition,
