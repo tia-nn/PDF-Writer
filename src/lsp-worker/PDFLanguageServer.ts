@@ -116,14 +116,25 @@ export class PDFLanguageServer {
 
     async codeLens(params: lsp.CodeLensParams): Promise<lsp.CodeLens[]> {
         return await this.parsing?.then((result) => {
-            const ret = result.streams.map((stream) => ({
-                range: stream.range,
-                command: {
-                    title: "Upload File",
-                    command: "pdf.uploadFile",
-                    arguments: [stream],
-                },
-            } as lsp.CodeLens));
+            const ret: lsp.CodeLens[] = []
+            result.streams.forEach((stream) => {
+                ret.push({
+                    range: stream.range,
+                    command: {
+                        title: "Upload File",
+                        command: "pdf.uploadFile",
+                        arguments: [stream],
+                    },
+                } as lsp.CodeLens)
+                ret.push({
+                    range: stream.range,
+                    command: {
+                        title: "Contents Editor",
+                        command: "pdf.peekStreamContents",
+                        arguments: [stream],
+                    },
+                } as lsp.CodeLens)
+            });
             const xref = result.tree.xref();
             if (xref) {
                 ret.push({

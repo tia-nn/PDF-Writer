@@ -1,10 +1,11 @@
 import { Monaco } from "@monaco-editor/react";
 import { languages, editor, IPosition, IRange } from "monaco-editor";
+import * as monaco from "monaco-editor";
 import MonarchLanguagePDF from "./monarch-language-pdf";
 
 import lspWorker from "../../../lsp-worker/worker?worker";
 import * as lsp from "vscode-languageserver-protocol";
-import { fromCompletionContext, fromPosition, toCodeLens, toCompletionItem, toDefinition, toHover, toLocation, toMarkerData, toTextEdit } from "monaco-languageserver-types";
+import { fromCompletionContext, fromLocation, fromPosition, toCodeLens, toCompletionItem, toDefinition, toHover, toLocation, toMarkerData, toPosition, toRange, toTextEdit } from "monaco-languageserver-types";
 import { Ascii85Encode } from "@/tools/encoding";
 import { Scope } from "@/lsp-worker/types";
 import { completionComments, completionDict } from "./completion";
@@ -51,6 +52,12 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
     });
     editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F12, function () {
         editor.trigger('keyboard', 'editor.action.referenceSearch.trigger', {});
+    });
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F2, function () {
+
+        monaco.editor.getEditors().forEach(e => {
+            console.log(e);
+        })
     });
 
     server?.terminate()
@@ -245,6 +252,27 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
             });
         }
     });
+
+    monaco.editor.addCommand({
+        id: 'pdf.peekStreamContents',
+        run: (command: lsp.Command, loc: lsp.Location) => {
+            const uri = monaco.Uri.parse(loc.uri);
+            const model = monaco.editor.getModel(uri);
+            if (!model) return;
+            const contents = model.getValueInRange(toRange(loc.range));
+            const streamModel = monaco.editor.createModel(contents, 'pdf-stream', monaco.Uri.parse('file://main.pdf?stream'));
+            const position = toPosition(loc.range.start);
+            const location: languages.Location = {
+                uri: monaco.Uri.parse("file://main.pdf?stream"),
+                range: new monaco.Range(1, 1, 1, 1),
+            };
+            peekLocations(editor, uri, position, [location]);
+
+            monaco.editor.getEditors().forEach(e => {
+                console.log(e);
+            })
+        }
+    })
 }
 
 export function didOpenTextDocument(text: string) {
@@ -345,4 +373,11 @@ async function commandInsertXRefTable(): Promise<lsp.TextEdit | null> {
             } as lsp.ExecuteCommandParams,
         } as lsp.RequestMessage);
     });
+}
+
+function peekLocations(editor: monaco.editor.IStandaloneCodeEditor, uri: monaco.Uri, position: monaco.IPosition, location: languages.Location[]) {
+    // editor.trigger() が複数の引数を使えないため StandaloneCodeEditor の private _commandService にアクセスする
+    // NOTE: @monaco-editor/react は古いバージョンの monaco-editor を使っており、これを廃止して最新の monaco-editor を使うなら現状を確認する
+    // https://github.com/microsoft/vscode/blob/9bfaf90fb9a479c16c6a33052efb3c9b188f03cb/src/vs/editor/browser/widget/codeEditor/codeEditorWidget.ts#L225
+    (editor as any)._commandService.executeCommand('editor.action.peekLocations', uri, position, location);
 }

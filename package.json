@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mikecousins/react-pdf": "^6.1.1",
     "@monaco-editor/react": "^4.6.0",
     "ahooks": "^3.8.1",
     "antlr4": "4.13.2",

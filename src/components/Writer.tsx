@@ -49,6 +49,7 @@ function Writer({ value, onChange }: { value: string, onChange: (v: string) => v
                 fontFamily: '"Source Code Pro", "Noto Sans JP", "Last Resort"',
                 tabSize: 2,
                 autoIndent: 'full',
+                stablePeek: true,
             }}
         ></Editor>
     </main>);
