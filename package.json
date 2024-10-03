@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "cp node_modules/coi-serviceworker/coi-serviceworker.min.js dist/pdf-writer/",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -14,11 +15,11 @@
     "ahooks": "^3.8.1",
     "antlr4": "4.13.2",
     "bootstrap": "^5.3.3",
+    "coi-serviceworker": "^0.1.7",
     "monaco-languageserver-types": "^0.4.0",
     "react": "^18.3.1",
     "react-bootstrap": "^2.10.4",
     "react-dom": "^18.3.1",
-    "vite-tsconfig-paths": "^5.0.1",
     "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {

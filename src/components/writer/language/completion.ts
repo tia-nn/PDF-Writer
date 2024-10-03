@@ -1,7 +1,6 @@
 import { Scope } from "@/lsp-worker/types";
 import { DictDefinitions } from "@/tools/dictTyping";
 import * as monaco from "monaco-editor";
-import { DictType } from '@/tools/dictTyping';
 
 const keywords = [
     "obj",
