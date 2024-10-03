@@ -1,13 +1,13 @@
 import { ParseResult, Scope, IndirectDefLocations, IndirectRefLocations } from "./types";
 import * as lsp from "vscode-languageserver-protocol";
-import { BasePDFParserListener, N } from "./listener/BasePDFParserListener";
+import { BasePDFParserListener, N, TreeTools } from "./listener/BasePDFParserListener";
 import { DiagnosticParser } from "./listener/Diagnostic";
 import { StreamParser } from "./listener/Stream";
 import { IndirectParser } from "./listener/Indirect";
 import { ScopeDetector } from "./dict/ScopeDetector";
 import { DictKeyDetector } from "./dict/DictKeyDetector";
 import { DictDefinitions } from "@/tools/dictTyping";
-import { XrefContext } from "./antlr/dist/PDFParser";
+import { StartxrefContext, XrefContext } from "./antlr/dist/PDFParser";
 import { TokenWithEndPos } from "./antlr/lib";
 import { DictParser } from "./listener/DictParser";
 
@@ -138,19 +138,21 @@ export class PDFLanguageServer {
             const xref = result.tree.xref();
             if (xref) {
                 ret.push({
-                    range: {
-                        start: {
-                            line: xref.start.line - 1,
-                            character: xref.start.column,
-                        },
-                        end: {
-                            line: (xref.stop as TokenWithEndPos).endLine - 1,
-                            character: (xref.stop as TokenWithEndPos).endColumn,
-                        },
-                    },
+                    range: TreeTools.range(xref),
                     command: {
                         title: "Insert XRef Table",
                         command: "pdf.insertXRefTable",
+                        arguments: [],
+                    },
+                });
+            }
+            const startxref = result.tree.startxref();
+            if (startxref && xref) {
+                ret.push({
+                    range: TreeTools.range(startxref),
+                    command: {
+                        title: "Insert XRef Offset",
+                        command: "pdf.insertXRefOffset",
                         arguments: [],
                     },
                 });
@@ -164,6 +166,8 @@ export class PDFLanguageServer {
             return await this.commandEncodeTextString(params.arguments || {});
         } else if (params.command === "pdf.insertXRefTable") {
             return await this.commandInsertXRefTable(params.arguments || {});
+        } else if (params.command === "pdf.insertXRefOffset") {
+            return await this.commandInsertXRefOffset(params.arguments || {});
         } else if (params.command === "pdf.getScope") {
             return await this.commandGetScope(...(params.arguments as [lsp.Position]));
         } else {
@@ -216,16 +220,25 @@ export class PDFLanguageServer {
             const section = `xref\n0 ${entries.length}\n` + entries.join('');
 
             return {
-                range: {
-                    start: {
-                        line: xref.start.line - 1,
-                        character: xref.start.column,
-                    },
-                    end: {
-                        line: (xref.stop as TokenWithEndPos).endLine - 1,
-                        character: (xref.stop as TokenWithEndPos).endColumn,
-                    },
-                },
+                range: TreeTools.range(xref),
+                newText: section,
+            } as lsp.TextEdit;
+        }) || null;
+    }
+
+    async commandInsertXRefOffset({ }: {}): Promise<lsp.TextEdit | null> {
+        return await this.parsing?.then((result) => {
+            const xref = result.tree.xref() as N<XrefContext>;
+            const startxref = result.tree.startxref() as N<StartxrefContext>;
+            if (!xref || !startxref) {
+                return null;
+            }
+
+            const offset = startxref.start.start;
+            const section = `startxref\n${offset}\n%%EOF`;
+
+            return {
+                range: TreeTools.range(startxref),
                 newText: section,
             } as lsp.TextEdit;
         }) || null;

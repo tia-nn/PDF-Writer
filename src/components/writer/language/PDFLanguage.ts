@@ -254,6 +254,17 @@ export function registerLanguagePDF(monaco: Monaco, editor: editor.IStandaloneCo
     });
 
     monaco.editor.addCommand({
+        id: 'pdf.insertXRefOffset',
+        run: (command: lsp.Command, loc: lsp.Location) => {
+            commandInsertXRefOffset().then(textEdit => {
+                if (textEdit) {
+                    editor.executeEdits(null, [toTextEdit(textEdit)]);
+                }
+            });
+        }
+    });
+
+    monaco.editor.addCommand({
         id: 'pdf.peekStreamContents',
         run: (command: lsp.Command, loc: lsp.Location) => {
             const uri = monaco.Uri.parse(loc.uri);
@@ -369,6 +380,27 @@ async function commandInsertXRefTable(): Promise<lsp.TextEdit | null> {
             method: 'workspace/executeCommand',
             params: {
                 command: 'pdf.insertXRefTable',
+                arguments: [],
+            } as lsp.ExecuteCommandParams,
+        } as lsp.RequestMessage);
+    });
+}
+
+
+async function commandInsertXRefOffset(): Promise<lsp.TextEdit | null> {
+    return new Promise((resolve) => {
+        const reqId = lspRequestID++;
+
+        ResponseQueue[reqId] = (textEdit: lsp.TextEdit | null) => {
+            resolve(textEdit);
+        };
+
+        server?.postMessage({
+            jsonrpc: '2.0',
+            id: reqId,
+            method: 'workspace/executeCommand',
+            params: {
+                command: 'pdf.insertXRefOffset',
                 arguments: [],
             } as lsp.ExecuteCommandParams,
         } as lsp.RequestMessage);

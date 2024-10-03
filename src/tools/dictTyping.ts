@@ -2,8 +2,12 @@
  * PDF1.0 のオブジェクト定義
  */
 
-export const DICT_TYPE = ['/Catalog', '/Pages', '/Page', '/Annot'] as const;
-export type DictType = typeof DICT_TYPE[number] | 'unknown' | 'trailer' | 'stream' | '/Annot-/Text' | '/Annot-/Link';
+export const DICT_TYPE = ['/Catalog', '/Pages', '/Page', '/Annot', '/Font', '/FontDescriptor'] as const;
+
+export type DictType = typeof DICT_TYPE[number]
+    | 'unknown' | 'trailer' | 'stream'
+    | '/Annot-/Text' | '/Annot-/Link'
+    | '/Font-/Type1' | '/Font-/MMType1' | '/Font-/Type3' | '/Font-/TrueType';
 export type TypeFields = typeof DICT_TYPE[number];
 
 export enum PDFObjectType {
@@ -27,6 +31,7 @@ type PDFObjectDefinition = {
     } | undefined
 }
 
+// TODO: 説明の拡充
 
 const TrailerDefinition: PDFObjectDefinition = {
     "/Size": {
@@ -166,6 +171,22 @@ const PageDefinition: PDFObjectDefinition = {
     },
 }
 
+const ResourcesDefinition: PDFObjectDefinition = {
+    "/ProcSet": {
+        description: "このリソースで使用されるプロシージャセット",
+        isRequired: true,
+        type: PDFObjectType.Array
+    },
+    "/Font": {
+        description: "このリソースで使用されるフォント",
+        type: PDFObjectType.Dictionary
+    },
+    "/XObject": {
+        description: "このリソースで使用される外部オブジェクト",
+        type: PDFObjectType.Dictionary
+    },
+}
+
 const TextAnnotationDefinition: PDFObjectDefinition = {
     "/Type": {
         description: "この辞書の種類",
@@ -244,6 +265,205 @@ const AnnotationSubtypesDefinition: PDFObjectDefinition = {
     },
 }
 
+const FontSubtypeDefinition: PDFObjectDefinition = {
+    "/Type": {
+        description: "この辞書の種類",
+        isRequired: true,
+        type: PDFObjectType.Name,
+        enum: { "/Font": "フォント" }
+    },
+    "/Subtype": {
+        description: "フォントの種類",
+        isRequired: true,
+        type: PDFObjectType.Name,
+        enum: {
+            "/Type1": "Type1 フォント",
+            "/MMType1": "Multiple Master Type1 フォント",
+            "/Type3": "Type3 フォント",
+            "/TrueType": "TrueType フォント",
+        }
+    },
+    "/Name": {
+        description: "フォント名",
+        isRequired: true,
+        type: PDFObjectType.String,
+    },
+    "/FirstChar": {
+        description: "width リストの最初の文字コード",
+        // isRequired: true, // 一部のフォントで省略される
+        type: PDFObjectType.Number,
+    },
+    "/LastChar": {
+        description: "width リストの最後の文字コード",
+        // isRequired: true, // 一部のフォントで省略される
+        type: PDFObjectType.Number,
+    },
+    "/Widths": {
+        description: "文字幅のリスト",
+        // isRequired: true, // 一部のフォントで省略される
+        type: PDFObjectType.Array,
+    },
+    "/Encoding": {
+        description: "フォントの文字コードエンコーディング",
+        type: PDFObjectType.Name,
+        enum: {
+            "/WinAnsiEncoding": "Windows-1252",
+            "/MacRomanEncoding": "MacRoman",
+            "/MacExpertEncoding": "MacExpert",
+            "/PDFDocEncoding": "PDFDoc",
+            "/BasicEncoding": "Basic",
+        }
+    },
+}
+
+const Type1FontDefinition: PDFObjectDefinition = {
+    ...FontSubtypeDefinition,
+    "/BaseFont": {
+        description: "ベースフォント名",
+        isRequired: true,
+        type: PDFObjectType.Name,
+        enum: {
+            "/Courier": "Courier",
+            "/Courier-Bold": "Courier-Bold",
+            "/Courier-Oblique": "Courier-Oblique",
+            "/Courier-BoldOblique": "Courier-BoldOblique",
+            "/Helvetica": "Helvetica",
+            "/Helvetica-Bold": "Helvetica-Bold",
+            "/Helvetica-Oblique": "Helvetica-Oblique",
+            "/Helvetica-BoldOblique": "Helvetica-BoldOblique",
+            "/Times-Roman": "Times-Roman",
+            "/Times-Bold": "Times-Bold",
+            "/Times-Italic": "Times-Italic",
+            "/Times-BoldItalic": "Times-BoldItalic",
+            "/Symbol": "Symbol",
+            "/ZapfDingbats": "ZapfDingbats",
+        }
+    },
+    "/FontDescriptor": {
+        description: "フォント記述子",
+        type: PDFObjectType.Indirect,
+    }
+}
+
+const MMType1FontDefinition: PDFObjectDefinition = {
+    ...FontSubtypeDefinition,
+    "/BaseFont": {
+        description: "ベースフォント名\n\nスペースが含まれる場合は _ で置換したもの",
+        isRequired: true,
+        type: PDFObjectType.Name,
+    },
+    "/FontDescriptor": {
+        description: "フォント記述子",
+        type: PDFObjectType.Indirect,
+    },
+}
+
+const Type3FontDefinition: PDFObjectDefinition = {
+    ...FontSubtypeDefinition,
+    "/CharProcs": {
+        description: "文字の描画手続き",
+        type: PDFObjectType.Dictionary,
+    },
+    "/FontBBox": {
+        description: "フォントの外接矩形",
+        type: PDFObjectType.Array,
+    },
+    "/FontMatrix": {
+        description: "フォント行列",
+        type: PDFObjectType.Array,
+    },
+}
+
+const TrueTypeFontDefinition: PDFObjectDefinition = {
+    ...FontSubtypeDefinition,
+    "/BaseFont": {
+        description: "ベースフォント名",
+        isRequired: true,
+        type: PDFObjectType.Name,
+    },
+    "/FontDescriptor": {
+        description: "フォント記述子",
+        type: PDFObjectType.Indirect,
+    },
+}
+
+const FontDescriptorDefinition: PDFObjectDefinition = {
+    "/Type": {
+        description: "この辞書の種類",
+        isRequired: true,
+        type: PDFObjectType.Name,
+        enum: { "/FontDescriptor": "フォント記述子" }
+    },
+    "/Ascent": {
+        description: "このフォントの文字がベースラインから到達する最大の高さ",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/CapHeight": {
+        description: "",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/Descent": {
+        description: "このフォントの文字がベースラインから到達する最大の深さ\n\n負の値になる",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/Flags": {
+        description: "",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/FontBBox": {
+        description: "",
+        isRequired: true,
+        type: PDFObjectType.Array,
+    },
+    "/FontName": {
+        description: "",
+        isRequired: true,
+        type: PDFObjectType.Name,
+    },
+    "/ItalicAngle": {
+        description: "",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/StemV": {
+        description: "",
+        isRequired: true,
+        type: PDFObjectType.Number,
+    },
+    "/AvgWidth": {
+        description: "",
+        type: PDFObjectType.Number,
+    },
+    "/FontFile": {
+        description: "",
+        type: PDFObjectType.Stream,
+    },
+    "/Leading": {
+        description: "",
+        type: PDFObjectType.Number,
+    },
+    "/MaxWidth": {
+        description: "",
+        type: PDFObjectType.Number,
+    },
+    "/MissingWidth": {
+        description: "",
+        type: PDFObjectType.Number,
+    },
+    "/StemH": {
+        description: "",
+        type: PDFObjectType.Number,
+    },
+    "/XHeight": {
+        description: "",
+        type: PDFObjectType.Number,
+    },
+}
+
 const UnknownDefinition: PDFObjectDefinition = {
     "/Type": {
         description: "この辞書の種類",
@@ -270,4 +490,10 @@ export const DictDefinitions: { [key in DictType]: PDFObjectDefinition } = {
     "/Annot": AnnotationSubtypesDefinition,
     "/Annot-/Text": TextAnnotationDefinition,
     "/Annot-/Link": LinkAnnotationDefinition,
+    "/Font": FontSubtypeDefinition,
+    "/Font-/Type1": Type1FontDefinition,
+    "/Font-/MMType1": MMType1FontDefinition,
+    "/Font-/Type3": Type3FontDefinition,
+    "/Font-/TrueType": TrueTypeFontDefinition,
+    "/FontDescriptor": FontDescriptorDefinition,
 };
